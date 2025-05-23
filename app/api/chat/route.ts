@@ -34,6 +34,63 @@ Example: If user asks about ethanol (CCO), call displayMolecule3D with:
   "description": "3D model of Ethanol"
 }
 
+For physics simulations and mechanics demonstrations, use the 'displayPhysicsSimulation' tool:
+
+PREDEFINED PHYSICS SCENARIOS:
+- "collision_demo" - Demonstrates elastic/inelastic collisions with conservation of momentum
+- "spring_system" - Shows simple harmonic motion and spring dynamics
+- "projectile_motion" - Demonstrates parabolic trajectory under gravity
+- "inclined_plane" - Forces and motion on angled surfaces
+- "pendulum" - Simple pendulum with customizable parameters
+- "falling_objects" - Objects falling under gravity with different properties
+
+NATURAL LANGUAGE TO PHYSICS MAPPING:
+- "Two balls colliding" or "collision" → collision_demo
+- "Mass on a spring" or "harmonic motion" → spring_system  
+- "Ball rolling down a ramp" → inclined_plane
+- "Projectile" or "trajectory" → projectile_motion
+- "Pendulum" or "oscillation" → pendulum
+- "Falling" or "gravity" → falling_objects
+
+For predefined scenarios, use minimal parameters:
+{
+  "simulationType": "collision_demo",
+  "simConfig": {},
+  "metadata": {
+    "title": "Collision Demonstration",
+    "description": "Watch two objects collide and observe momentum conservation"
+  }
+}
+
+For custom physics scenarios, use the full configuration system:
+{
+  "simulationType": "custom_matter_js_setup",
+  "simConfig": {
+    "objects": [
+      {
+        "id": "ball1",
+        "type": "ball",
+        "position": {"x": 100, "y": 200},
+        "velocity": {"x": 2, "y": 0},
+        "dimensions": {"radius": 15},
+        "properties": {"mass": 1, "color": "#ff6b6b"}
+      }
+    ],
+    "environment": {
+      "gravity": {"x": 0, "y": 0.98},
+      "boundaries": {"ground": true, "walls": true}
+    }
+  },
+  "metadata": {
+    "title": "Custom Physics Simulation",
+    "educational_context": "Demonstrates specific physics principles"
+  }
+}
+
+Object types: "ball", "box", "polygon"
+Colors: Use hex codes like "#ff6b6b", "#4ecdc4", "#9b59b6"
+Always include educational_context in metadata to explain the physics concept.
+
 For mathematical function plotting:
 - For 2D functions (single variable): use 'plotFunction2D' tool
   * Required: functionString (math.js syntax), variable (name and range)
@@ -65,15 +122,11 @@ For general charts and plots with raw data, use the 'displayPlotlyChart' tool wi
 IMPORTANT: 
 - Always use the actual tool calls, never generate text tokens or placeholders
 - Call each tool only ONCE per response - do not repeat tool calls
-- After calling a tool, provide a brief explanation of what was displayed`;
+- After calling a tool, provide a brief explanation of what was displayed
+- For physics, always explain the educational concept being demonstrated`;
   }
 
   switch (modelId) {
-    case 'grok-3-mini':
-      return {
-        model: xai('grok-3-mini'),
-        system: `${baseSystem}\n\nYou are powered by Grok-3-Mini with reasoning capabilities.`,
-      };
     case 'gemini-1.5-flash-latest':
       return {
         model: google('models/gemini-1.5-flash-latest'),
@@ -84,10 +137,15 @@ IMPORTANT:
         model: anthropic('claude-3-haiku-20240307'),
         system: `${baseSystem}\n\nYou are powered by Claude 3 Haiku.`,
       };
+    case 'gpt-4o':
+      return {
+        model: openai('gpt-4o'),
+        system: `${baseSystem}\n\nYou are powered by GPT-4o.`,
+      };
     default:
       return {
-        model: openai('gpt-4o'), 
-        system: `${baseSystem}\n\nYou are powered by GPT-4o.`,
+        model: xai('grok-3-mini'),
+        system: `${baseSystem}\n\nYou are powered by Grok-3-Mini with reasoning capabilities.`,
       };
   }
 }

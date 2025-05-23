@@ -3,6 +3,8 @@ import { Message as VercelMessage, ToolInvocation as VercelToolInvocation } from
 import dynamic from 'next/dynamic';
 import PendingVisualizationCard from './visualizations/PendingVisualizationCard';
 import Simple3DMolViewer from './visualizations/Simple3DMolViewer';
+import Advanced3DMolViewer from './visualizations/Advanced3DMolViewer';
+import MatterSimulator from './visualizations/MatterSimulator';
 // import PlotlyPlotter from './visualizations/PlotlyPlotter'; // Keep if other tools are added soon
 import VisualizationErrorBoundary from './visualizations/VisualizationErrorBoundary';
 import CodePreview from './CodePreview';
@@ -91,7 +93,27 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                     {state === 'result' && result && (
                       <>
                         {toolName === 'displayMolecule3D' && (
-                          <Simple3DMolViewer {...(result as any)} /> 
+                          (() => {
+                            // Check if the result has advanced options
+                            const hasAdvancedOptions = result && (
+                              result.representationStyle !== 'stick' ||
+                              result.colorScheme !== 'element' ||
+                              (result.selections && result.selections.length > 0) ||
+                              result.showSurface ||
+                              result.showLabels ||
+                              result.backgroundColor !== 'white'
+                            );
+
+                            console.log('[ChatMessages] displayMolecule3D advanced check:', { hasAdvancedOptions, result });
+
+                            // Use Advanced3DMolViewer if any advanced options are present
+                            if (hasAdvancedOptions) {
+                              return <Advanced3DMolViewer {...(result as any)} />;
+                            } else {
+                              // Fall back to Simple3DMolViewer for basic usage
+                              return <Simple3DMolViewer {...(result as any)} />;
+                            }
+                          })()
                         )}
                         {toolName === 'displayPlotlyChart' && (
                           <PlotlyPlotter {...(result as any)} /> 
@@ -99,8 +121,11 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                         {(toolName === 'plotFunction2D' || toolName === 'plotFunction3D') && (
                           <PlotlyPlotter {...(result as any)} />
                         )}
+                        {toolName === 'displayPhysicsSimulation' && (
+                          <MatterSimulator {...(result as any)} />
+                        )}
                         {/* Fallback for unhandled tools or to show raw result */}
-                        {!['displayMolecule3D', 'displayPlotlyChart', 'plotFunction2D', 'plotFunction3D'].includes(toolName) && (
+                        {!['displayMolecule3D', 'displayPlotlyChart', 'plotFunction2D', 'plotFunction3D', 'displayPhysicsSimulation'].includes(toolName) && (
                            <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
                             <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tool: {toolName}</p>
                             <CodePreview code={JSON.stringify(result, null, 2)} />
