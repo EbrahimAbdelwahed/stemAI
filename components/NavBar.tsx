@@ -58,7 +58,7 @@ export default function NavBar({ selectedModel, onModelChange, onNewChat }: NavB
           className="rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="grok-3-mini">Grok-3-Mini</option>
-          <option value="gemini-2-flask">Gemini 2.0</option>
+          <option value="gemini-2-flash">Gemini 2.0</option>
         </select>
         
         <div className="flex items-center border-l border-gray-700 pl-3 ml-2">

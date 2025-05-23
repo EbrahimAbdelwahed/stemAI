@@ -4,6 +4,7 @@
   "description": "STEM AI Assistant with RAG capabilities",
   "main": "index.js",
   "directories": {
+    "doc": "docs",
     "lib": "lib"
   },
   "scripts": {
@@ -22,26 +23,37 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@ai-sdk/anthropic": "^1.2.11",
+    "@ai-sdk/anthropic": "^1.2.12",
     "@ai-sdk/google": "^1.2.18",
     "@ai-sdk/openai": "^1.3.22",
     "@ai-sdk/react": "^1.2.12",
     "@ai-sdk/xai": "^1.2.16",
     "@neondatabase/serverless": "^1.0.0",
     "@tailwindcss/forms": "^0.5.10",
-    "ai": "^4.3.15",
+    "@vercel/analytics": "^1.5.0",
+    "3dmol": "^2.4.2",
+    "ai": "^4.3.16",
     "autoprefixer": "^10.4.21",
     "drizzle-orm": "^0.43.1",
+    "mathjs": "^14.4.0",
     "next": "^15.3.2",
     "pgvector": "^0.2.0",
+    "plotly.js": "^3.0.1",
     "postcss": "^8.5.3",
     "postgres": "^3.4.5",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "tailwindcss": "^3.4.3"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-plotly.js": "^2.6.0",
+    "sonner": "^2.0.3",
+    "tailwindcss": "^3.4.3",
+    "uuid": "^11.1.0",
+    "zod": "^3.25.20"
   },
   "devDependencies": {
     "@types/react": "19.1.4",
+    "eslint": "9.27.0",
+    "eslint-config-next": "15.1.8",
+    "sass": "^1.89.0",
     "typescript": "5.8.3"
   }
 }

@@ -3,9 +3,10 @@ import React, { useRef, useState } from 'react';
 interface FileUploaderProps {
   onUpload: (files: File[]) => void;
   isUploading?: boolean;
+  disabled?: boolean;
 }
 
-export default function FileUploader({ onUpload, isUploading = false }: FileUploaderProps) {
+export default function FileUploader({ onUpload, isUploading = false, disabled = false }: FileUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -81,9 +82,9 @@ export default function FileUploader({ onUpload, isUploading = false }: FileUplo
     <div className="mb-4">
       <button
         type="button"
-        disabled={isUploading}
+        disabled={isUploading || disabled}
         className={`group relative flex items-center rounded-md text-sm px-3 py-2 text-gray-600 dark:text-gray-300 transition-all duration-200 ${
-          isUploading 
+          isUploading || disabled 
             ? 'bg-gray-100 dark:bg-gray-800 opacity-70 cursor-not-allowed' 
             : isDragging || isHovering
               ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300'
@@ -144,7 +145,7 @@ export default function FileUploader({ onUpload, isUploading = false }: FileUplo
         onChange={handleFileInputChange}
         multiple
         accept=".pdf,.txt,.doc,.docx"
-        disabled={isUploading}
+        disabled={isUploading || disabled}
       />
       
       {/* File list */}

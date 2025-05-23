@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 
-type ModelType = 'grok-3-mini' | 'gemini-2-flask';
+type ModelType = 'grok-3-mini' | 'gemini-2-flash' | 'gpt-4o' | 'claude-3-haiku';
 
 interface ModelSelectorProps {
   selectedModel: ModelType;
   onModelChange: (model: ModelType) => void;
+  disabled?: boolean;
 }
 
 const models = [
@@ -22,7 +23,7 @@ const models = [
     )
   },
   { 
-    id: 'gemini-2-flask', 
+    id: 'gemini-2-flash', 
     name: 'Gemini 2.0', 
     description: 'Advanced Google AI model',
     tag: 'Flash',
@@ -35,9 +36,36 @@ const models = [
       </svg>
     )
   },
+  { 
+    id: 'gpt-4o', 
+    name: 'GPT-4o', 
+    description: 'OpenAI\'s advanced multimodal model',
+    tag: 'Optimized',
+    performance: 'Balanced',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-green-400">
+        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  },
+  { 
+    id: 'claude-3-haiku', 
+    name: 'Claude 3 Haiku', 
+    description: 'Anthropic\'s fast and capable model',
+    tag: 'Fast',
+    performance: 'Fast',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-orange-400">
+        <path d="M12 16.01L16 12L12 7.99L8 12L12 16.01Z" fill="currentColor" />
+        <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  },
 ];
 
-export default function ModelSelector({ selectedModel, onModelChange }: ModelSelectorProps) {
+export default function ModelSelector({ selectedModel, onModelChange, disabled = false }: ModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const currentModel = models.find(model => model.id === selectedModel) || models[0];
 
@@ -46,8 +74,11 @@ export default function ModelSelector({ selectedModel, onModelChange }: ModelSel
       <div className="flex items-center">
         <button
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-1 bg-gray-700 hover:bg-gray-600 text-white rounded-md px-3 py-1.5 text-sm transition-colors"
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
+          className={`flex items-center space-x-1 bg-gray-700 hover:bg-gray-600 text-white rounded-md px-3 py-1.5 text-sm transition-colors ${
+            disabled ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
         >
           <span className="flex items-center">
             {currentModel.icon}
@@ -59,7 +90,7 @@ export default function ModelSelector({ selectedModel, onModelChange }: ModelSel
         </button>
       </div>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <div className="absolute right-0 mt-1 w-60 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 z-10">
           <div className="py-1" role="menu" aria-orientation="vertical">
             {models.map((model) => (

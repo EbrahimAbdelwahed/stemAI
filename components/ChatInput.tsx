@@ -6,6 +6,8 @@ interface ChatInputProps {
   handleSubmit: (e: FormEvent<HTMLFormElement>) => void;
   isLoading: boolean;
   stop?: () => void;
+  reload?: () => void;
+  disabled?: boolean;
 }
 
 export default function ChatInput({
@@ -14,6 +16,8 @@ export default function ChatInput({
   handleSubmit,
   isLoading,
   stop,
+  reload,
+  disabled = false,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -51,7 +55,7 @@ export default function ChatInput({
               }
             }
           }}
-          disabled={isLoading}
+          disabled={isLoading || disabled}
         />
         
         {/* Character count and tips */}
@@ -83,7 +87,7 @@ export default function ChatInput({
       ) : (
         <button
           type="submit"
-          disabled={isLoading || !input.trim()}
+          disabled={isLoading || !input.trim() || disabled}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 hover:bg-blue-700 h-[44px] min-w-[80px] shadow-sm flex items-center justify-center transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

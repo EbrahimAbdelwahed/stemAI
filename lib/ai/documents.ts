@@ -3,6 +3,11 @@ import { generateEmbeddings } from './embedding';
 
 // Add a document and its embeddings to the database
 export async function addDocument(title: string, content: string) {
+  if (process.env.RAG_ENABLED !== 'true' || !db) {
+    console.warn('RAG is disabled or DB is not initialized. Skipping addDocument.');
+    // Consider throwing an error or returning a specific status if preferred
+    return null; 
+  }
   // First, insert the document
   const [document] = await db
     .insert(documents)
@@ -29,6 +34,10 @@ export async function addDocument(title: string, content: string) {
 
 // Search for relevant document chunks based on a query
 export async function searchDocuments(query: string, limit = 5) {
+  if (process.env.RAG_ENABLED !== 'true' || !db) {
+    console.warn('RAG is disabled or DB is not initialized. Skipping searchDocuments.');
+    return []; // Return empty array as if no documents were found
+  }
   // Generate embedding for the query
   const [queryEmbedding] = await generateEmbeddings(query);
   

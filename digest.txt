@@ -1,0 +1,5003 @@
+Directory structure:
+└── stemAI/
+    ├── README.md
+    ├── VERCEL_SETUP.md
+    ├── env.local
+    ├── next-env.d.ts
+    ├── ok
+    ├── package.json
+    ├── postcss.config.js
+    ├── tailwind.config.js
+    ├── tsconfig.json
+    ├── app/
+    │   ├── globals.css
+    │   ├── layout.tsx
+    │   ├── page.tsx
+    │   ├── api/
+    │   │   ├── chat/
+    │   │   │   └── route.ts
+    │   │   └── documents/
+    │   │       └── route.ts
+    │   ├── chat/
+    │   │   └── page.tsx
+    │   └── generate/
+    │       └── page.tsx
+    ├── components/
+    │   ├── ChatInput.tsx
+    │   ├── ChatMessages.tsx
+    │   ├── CodePreview.tsx
+    │   ├── ConversationView.tsx
+    │   ├── EnhancedChatInput.tsx
+    │   ├── FileUploader.tsx
+    │   ├── ModelSelector.tsx
+    │   ├── NavBar.tsx
+    │   └── SplitPane.tsx
+    ├── docs/
+    │   ├── README.md
+    │   ├── api-reference.md
+    │   ├── architecture.md
+    │   ├── components.md
+    │   ├── contributing.md
+    │   ├── database-schema.md
+    │   ├── deployment.md
+    │   ├── getting-started.md
+    │   ├── introduction.md
+    │   └── ui-generation.md
+    └── lib/
+        ├── ai/
+        │   ├── documents.ts
+        │   └── embedding.ts
+        └── db/
+            ├── index.ts
+            └── schema.ts
+
+================================================
+File: README.md
+================================================
+# STEM AI Assistant
+
+A STEM learning assistant with RAG capabilities powered by multiple AI models using Vercel's AI SDK.
+
+## Features
+
+- Chat with multiple AI models (Grok-3-Mini Beta, Gemini 2.0 Flash)
+- Upload documents to enhance the AI's knowledge (RAG)
+- Semantic search to find relevant information
+- Model selection to switch between different AI models
+
+## Tech Stack
+
+- Next.js
+- Vercel AI SDK
+- Tailwind CSS
+- PostgreSQL with pgvector for vector storage
+- Drizzle ORM
+
+## Prerequisites
+
+- Node.js 18+ 
+- PostgreSQL database with pgvector extension
+- API keys for the models you want to use
+
+## Setup
+
+1. Clone the repository:
+
+```bash
+git clone <repository-url>
+cd stemai
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Set up your environment variables by creating a `.env.local` file:
+
+```
+# OpenAI API Key (required for fallback)
+OPENAI_API_KEY=your_openai_api_key
+
+# Google API Key (required for Gemini models)
+GOOGLE_API_KEY=your_google_api_key
+
+# xAI API Key (required for Grok models)
+XAI_API_KEY=your_xai_api_key
+
+# Anthropic API Key (optional)
+ANTHROPIC_API_KEY=your_anthropic_api_key
+
+# Database URL (required)
+DATABASE_URL=postgres://username:password@hostname:port/database
+```
+
+4. Set up your database:
+
+You need a PostgreSQL database with the pgvector extension installed. You can use services like Neon.tech, which provides this setup.
+
+5. Run database migrations (once the migration scripts are created):
+
+```bash
+npm run db:migrate
+```
+
+## Development
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Usage
+
+1. Visit the homepage and click "Start Chatting"
+2. Use the model selector to choose your preferred AI model
+3. Upload documents using the file uploader to enhance the AI's knowledge
+4. Ask questions related to the uploaded documents or general STEM topics
+
+## API Keys
+
+### Getting a Google API Key
+To use the Gemini models, you'll need a Google API key:
+1. Visit Google AI Studio at https://aistudio.google.com/
+2. Create a project and generate an API key
+3. Add the API key to your `.env.local` file as `GOOGLE_API_KEY`
+
+### Getting an xAI API Key
+To use the Grok models, you'll need an xAI API key:
+1. Visit the xAI Platform at https://platform.xai.com/
+2. Create an account and generate an API key
+3. Add the API key to your `.env.local` file as `XAI_API_KEY`
+
+## Future Improvements
+
+- Add authentication
+- Support for more file types (PDF parsing, etc.)
+- Additional AI models
+- Enhanced RAG techniques
+- User management and personalized knowledge bases 
+
+
+================================================
+File: VERCEL_SETUP.md
+================================================
+# Setting Up xAI Integration with Vercel
+
+According to the Vercel documentation, there's a special integration process for xAI that provides better authentication and usage metrics. Here's how to set it up:
+
+## Prerequisites
+- A Vercel account
+- The Vercel CLI installed on your machine
+
+## Installation Steps
+
+1. **Install the xAI integration using Vercel CLI**:
+   ```bash
+   vercel install xai
+   ```
+   During this process, you will be asked to open the dashboard to accept the marketplace terms if you have not installed this integration before. You can also choose which project(s) the provider will have access to.
+
+2. **Set up your project with the required packages**:
+   We've already installed the necessary packages:
+   ```bash
+   npm install @ai-sdk/xai ai
+   ```
+
+3. **Configure your API route**:
+   We've updated our `/app/api/chat/route.ts` file to use the xAI provider.
+
+4. **Environment Variables**:
+   When using the Vercel integration, you don't need to manually set the `XAI_API_KEY` in your environment variables - the integration handles this for you.
+
+## Deployment
+
+When deploying to Vercel:
+
+1. Make sure you have the xAI integration installed for your Vercel project
+2. Deploy your project normally using the Vercel dashboard or CLI
+3. The integration will automatically handle the authentication with xAI
+
+## Local Development
+
+For local development, you still need to:
+
+1. Create a `.env.local` file with your API keys
+2. Include the `XAI_API_KEY` in that file
+
+## Learn More
+
+- [Vercel xAI Integration Documentation](https://vercel.com/docs/ai/xai)
+- [xAI Platform](https://platform.xai.com/) 
+
+
+================================================
+File: env.local
+================================================
+# OpenAI API Key (required)
+OPENAI_API_KEY=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
+
+# Google API Key (for Gemini models)
+GOOGLE_API_KEY=AIzaSyCCsTDLX8cWazBEvdmlku4xCX_IYH7mIcI
+
+# xAI API Key (required for Grok models)
+XAI_API_KEY=xai-aWr1qZgXh6bswxFrHM5QLMwuvhra4V6mjv2aShp9M0ufQ4Ky4E916nGA4HlEBhKQAo6d8vKkwfvSSMiB
+
+# Anthropic API Key (optional)
+ANTHROPIC_API_KEY=your_anthropic_api_key
+
+# Database URL (required)
+DATABASE_URL=postgres://stemAI:postgres@localhost:5432/database
+
+
+================================================
+File: next-env.d.ts
+================================================
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+
+
+
+================================================
+File: ok
+================================================
+
+
+
+================================================
+File: package.json
+================================================
+{
+  "name": "stemai",
+  "version": "1.0.0",
+  "description": "STEM AI Assistant with RAG capabilities",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [
+    "ai",
+    "rag",
+    "stem",
+    "education",
+    "assistant"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@ai-sdk/anthropic": "^1.2.11",
+    "@ai-sdk/google": "^1.2.18",
+    "@ai-sdk/openai": "^1.3.22",
+    "@ai-sdk/react": "^1.2.12",
+    "@ai-sdk/xai": "^1.2.16",
+    "@neondatabase/serverless": "^1.0.0",
+    "@tailwindcss/forms": "^0.5.10",
+    "ai": "^4.3.15",
+    "autoprefixer": "^10.4.21",
+    "drizzle-orm": "^0.43.1",
+    "next": "^15.3.2",
+    "pgvector": "^0.2.0",
+    "postcss": "^8.5.3",
+    "postgres": "^3.4.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^3.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.4",
+    "typescript": "5.8.3"
+  }
+}
+
+
+
+================================================
+File: postcss.config.js
+================================================
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}; 
+
+
+================================================
+File: tailwind.config.js
+================================================
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
+      animation: {
+        'gradient': 'gradient 10s ease infinite',
+        'fade-in': 'fade-in 0.5s ease-out',
+        'fade-out': 'fade-out 0.5s ease-out',
+      },
+      keyframes: {
+        'gradient': {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
+        'fade-in': {
+          '0%': { opacity: 0 },
+          '100%': { opacity: 1 },
+        },
+        'fade-out': {
+          '0%': { opacity: 1 },
+          '100%': { opacity: 0 },
+        },
+      },
+    },
+  },
+  plugins: [
+    require('@tailwindcss/forms'),
+  ],
+} 
+
+
+================================================
+File: tsconfig.json
+================================================
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "incremental": true,
+    "module": "esnext",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+
+
+
+================================================
+File: app/globals.css
+================================================
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Code syntax highlighting */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-title,
+.hljs-section,
+.hljs-doctag,
+.hljs-name,
+.hljs-strong {
+  @apply text-blue-400;
+}
+.hljs-built_in,
+.hljs-type,
+.hljs-class {
+  @apply text-green-400;
+}
+.hljs-attribute,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+  @apply text-yellow-400;
+}
+.hljs-string,
+.hljs-char,
+.hljs-attr,
+.hljs-regex {
+  @apply text-amber-400;
+}
+.hljs-comment,
+.hljs-quote,
+.hljs-deletion {
+  @apply text-gray-500;
+}
+.hljs-number,
+.hljs-boolean,
+.hljs-literal {
+  @apply text-purple-400;
+}
+
+/* Split pane resizer */
+.resizer {
+  @apply bg-gray-800 hover:bg-blue-500 transition-colors;
+  width: 4px;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-700 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-600;
+} 
+
+
+
+
+================================================
+File: app/layout.tsx
+================================================
+import './globals.css';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'STEM AI Assistant',
+  description: 'AI assistant for STEM topics with RAG capabilities',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" className="dark">
+      <body className={`${inter.className} bg-gray-950 text-gray-100 antialiased`}>
+        {children}
+      </body>
+    </html>
+  );
+} 
+
+
+================================================
+File: app/page.tsx
+================================================
+import Link from 'next/link';
+
+export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-950 text-white p-8">
+      <div className="mb-12 flex items-center space-x-3">
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="38" 
+          height="38" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          className="text-blue-500"
+        >
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        </svg>
+        <h1 className="text-4xl font-bold">STEM AI Assistant</h1>
+      </div>
+      
+      <p className="text-xl mb-12 text-gray-300 text-center max-w-2xl">
+        A powerful AI assistant for STEM learning, now with UI generation capabilities
+      </p>
+      
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 max-w-sm">
+          <h2 className="text-2xl font-semibold mb-3">STEM Chat</h2>
+          <p className="text-gray-300 mb-6">
+            Ask questions about science, technology, engineering, and mathematics with RAG capabilities.
+          </p>
+          <Link 
+            href="/chat" 
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md inline-flex items-center transition-colors"
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              className="mr-2"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Open Chat
+          </Link>
+        </div>
+        
+        <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 max-w-sm">
+          <h2 className="text-2xl font-semibold mb-3">UI Generator</h2>
+          <p className="text-gray-300 mb-6">
+            Generate React components with a v0-like interface using AI-powered design.
+          </p>
+          <Link 
+            href="/generate" 
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md inline-flex items-center transition-colors"
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              className="mr-2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            Generate UI
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+} 
+
+
+================================================
+File: app/api/chat/route.ts
+================================================
+import { anthropic } from '@ai-sdk/anthropic';
+import { google } from '@ai-sdk/google';
+import { openai } from '@ai-sdk/openai';
+import { xai } from '@ai-sdk/xai';
+import { streamText } from 'ai';
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { searchDocuments } from '../../../lib/ai/documents';
+
+// Allow streaming responses up to 30 seconds
+export const maxDuration = 30;
+
+export async function POST(req: NextRequest) {
+  const { messages, model = 'grok-3-mini', mode = 'chat' } = await req.json();
+  
+  // Get the last user message to use for RAG
+  const lastUserMessage = messages
+    .filter((message: any) => message.role === 'user')
+    .pop();
+  
+  // Initialize context with empty string
+  let context = '';
+  
+  // If there's a user message, search for relevant documents
+  if (lastUserMessage) {
+    try {
+      const relevantDocs = await searchDocuments(lastUserMessage.content, 3);
+      if (relevantDocs && relevantDocs.length > 0) {
+        // Format the relevant documents into a context string
+        context = `Here is some relevant information that may help answer the question:\n\n` +
+          relevantDocs.map((doc) => {
+            return `Document: "${doc.title}"\nContent: ${doc.content}\n`;
+          }).join('\n');
+      }
+    } catch (error) {
+      console.error('Error searching documents:', error);
+      // Continue without context if search fails
+    }
+  }
+
+  const modelConfig = getModelConfig(model, mode);
+  
+  // Add context to the system message if available
+  const system = context 
+    ? `${modelConfig.system}\n\n${context}` 
+    : modelConfig.system;
+  
+  const result = streamText({
+    model: modelConfig.model,
+    system,
+    messages,
+    maxSteps: 5,
+    tools: mode === 'generate' ? {
+      generateReactComponent: {
+        description: 'Generate a React component based on the user request',
+        parameters: z.object({
+          jsx: z.string().describe('The React JSX code for the component'),
+          componentName: z.string().describe('The name of the component'),
+          description: z.string().describe('A brief description of what the component does'),
+        }),
+        execute: async function ({ jsx, componentName, description }) {
+          // In a real implementation, you might want to format or validate the JSX
+          return {
+            jsx,
+            componentName,
+            description,
+            timestamp: new Date().toISOString()
+          };
+        }
+      }
+    } : undefined
+  });
+
+  return result.toDataStreamResponse();
+}
+
+function getModelConfig(modelId: string, mode: string = 'chat') {
+  // Base system message for the mode
+  const baseSystem = mode === 'generate' 
+    ? `You are an expert React developer who excels at creating clean, accessible, and responsive UI components. You're helping a user create React components based on their prompts. Always generate the most minimal, clean React code that fulfills the requirements. Use TypeScript type annotations when appropriate. Always use modern React patterns (e.g., functional components, hooks). Format the JSX beautifully.
+
+When generating code, invoke the 'generateReactComponent' tool to provide the complete, ready-to-use component. Each component should be:
+1. Complete and self-contained
+2. Well-typed with TypeScript
+3. Using modern React patterns
+4. Following best practices for accessibility and responsiveness`
+    : `You are a helpful STEM assistant. Focus on providing accurate, educational information about science, technology, engineering, and mathematics. Explain concepts clearly and provide examples where appropriate. If you're unsure about something, acknowledge the limits of your knowledge instead of making up information.`;
+
+  switch (modelId) {
+    case 'grok-3-mini':
+      return {
+        model: xai('grok-3-mini-beta'),
+        system: mode === 'generate'
+          ? `${baseSystem}\n\nYou are powered by Grok-3-Mini with reasoning capabilities.`
+          : `${baseSystem}\n\nYou are powered by Grok-3-Mini with reasoning capabilities.`,
+      };
+    case 'gemini-2-flask':
+      return {
+        model: google('gemini-2.0-flash-exp'),
+        system: mode === 'generate'
+          ? `${baseSystem}\n\nYou are powered by Gemini 2.0 Flask.`
+          : `${baseSystem}\n\nYou are powered by Gemini 2.0 Flask.`,
+      };
+    default:
+      // Fallback to OpenAI if the requested model is not available
+      return {
+        model: openai('gpt-4o'), 
+        system: mode === 'generate'
+          ? `${baseSystem}\n\nYou are powered by GPT-4o.`
+          : `${baseSystem}\n\nYou are powered by GPT-4o.`,
+      };
+  }
+} 
+
+
+================================================
+File: app/api/documents/route.ts
+================================================
+import { NextRequest, NextResponse } from 'next/server';
+import { addDocument } from '../../../lib/ai/documents';
+
+export async function POST(req: NextRequest) {
+  try {
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    
+    if (!file) {
+      return NextResponse.json(
+        { error: 'File is required' },
+        { status: 400 }
+      );
+    }
+
+    // Read file content
+    const fileContent = await file.text();
+    
+    // Use filename as title
+    const title = file.name;
+    
+    // Add document to database with embeddings
+    const documentId = await addDocument(title, fileContent);
+    
+    return NextResponse.json({ 
+      success: true, 
+      documentId,
+      message: `Document "${title}" uploaded and processed successfully`
+    });
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    return NextResponse.json(
+      { error: 'Failed to process document' },
+      { status: 500 }
+    );
+  }
+} 
+
+
+================================================
+File: app/chat/page.tsx
+================================================
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useChat, Message } from '@ai-sdk/react';
+import ModelSelector from '../../components/ModelSelector';
+import ChatInput from '../../components/ChatInput';
+import ChatMessages from '../../components/ChatMessages';
+import FileUploader from '../../components/FileUploader';
+
+type ModelType = 'grok-3-mini' | 'gemini-2-flask';
+
+export default function ChatPage() {
+  const [selectedModel, setSelectedModel] = useState<ModelType>('grok-3-mini');
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // Use the chat hook
+  const { 
+    messages, 
+    input, 
+    handleInputChange, 
+    handleSubmit, 
+    isLoading, 
+    reload, 
+    stop, 
+    error, 
+    setMessages,
+    append
+  } = useChat({
+    api: '/api/chat',
+    body: {
+      model: selectedModel
+    },
+    id: 'stem-ai-chat',
+    initialMessages: [
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: 'Hello! I\'m your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.'
+      }
+    ],
+    maxSteps: 5, // Allow multiple steps for tools
+    onError: (error) => {
+      console.error('Chat error:', error);
+    }
+  });
+
+  // Implement manual persistence using localStorage
+  useEffect(() => {
+    // Save messages to localStorage whenever they change
+    if (typeof window !== 'undefined' && messages.length > 0) {
+      try {
+        localStorage.setItem('stem-ai-chat-history', JSON.stringify(messages));
+      } catch (error) {
+        console.error('Error saving chat history:', error);
+      }
+    }
+  }, [messages]);
+
+  // Load saved messages on initial component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedMessages = localStorage.getItem('stem-ai-chat-history');
+        if (savedMessages && savedMessages !== 'undefined') {
+          const parsedMessages = JSON.parse(savedMessages);
+          // Only set if there are saved messages and not just the initial welcome message
+          if (parsedMessages && parsedMessages.length > 1) {
+            setMessages(parsedMessages);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+      }
+    }
+  }, []);
+
+  const onModelChange = (model: ModelType) => {
+    setSelectedModel(model);
+    
+    // Add a system message announcing the model change
+    append({
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: `Switching to ${model === 'grok-3-mini' ? 'Grok-3-Mini' : 'Gemini 2.0 Flash'} model. How can I help you?`
+    });
+  };
+
+  const handleFileUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    
+    setIsUploading(true);
+    
+    const uploadingMessage = {
+      id: Date.now().toString(),
+      role: 'assistant' as const,
+      content: `Processing ${files.length} file(s)...`
+    };
+    
+    // Show a temporary message
+    setMessages([...messages, uploadingMessage]);
+    
+    let successCount = 0;
+    let failCount = 0;
+    const fileDetails: string[] = [];
+    
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Display the file name in the message for better UX
+        fileDetails.push(`${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+        
+        // Add a small timeout to show that each file is being processed
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        const response = await fetch('/api/documents', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          successCount++;
+        } else {
+          failCount++;
+          console.error(`Error uploading file: ${result.error}`);
+        }
+      } catch (error) {
+        failCount++;
+        console.error('Error uploading file:', error);
+      }
+    }
+    
+    // Replace the uploading message with final status
+    setMessages(messages => 
+      messages.map(msg => 
+        msg.id === uploadingMessage.id 
+          ? {
+              id: Date.now().toString(),
+              role: 'assistant' as const,
+              content: successCount > 0 
+                ? `Successfully processed ${successCount} file(s)${failCount > 0 ? ` (${failCount} failed)` : ''}.\n\nFiles: \n${fileDetails.join('\n')}\n\nYou can now ask questions about the content.`
+                : `Sorry, there was an error processing your files. Please try again.`
+            }
+          : msg
+      )
+    );
+    
+    setIsUploading(false);
+  };
+
+  // Clear chat history function that also clears localStorage
+  const handleClearChat = () => {
+    if (window.confirm('Are you sure you want to clear the chat history?')) {
+      setMessages([{
+        id: 'welcome',
+        role: 'assistant',
+        content: 'Chat history cleared. How can I help you with STEM topics today?'
+      }]);
+      
+      // Also clear from localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('stem-ai-chat-history');
+        } catch (error) {
+          console.error('Error clearing chat history from localStorage:', error);
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-screen max-h-screen bg-gray-50 dark:bg-gray-900">
+      <header className="bg-gray-800 text-white p-4 shadow-md">
+        <div className="container mx-auto flex justify-between items-center">
+          <h1 className="text-xl font-bold">STEM AI Assistant</h1>
+          <div className="flex items-center space-x-4">
+            {isLoading && (
+              <button 
+                onClick={stop}
+                className="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors"
+                aria-label="Stop generating"
+              >
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Stop
+                </span>
+              </button>
+            )}
+            <button
+              onClick={handleClearChat}
+              className="px-3 py-1 bg-gray-600 text-white rounded-md text-sm hover:bg-gray-700 transition-colors"
+              aria-label="Clear chat"
+            >
+              <span className="flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Clear Chat
+              </span>
+            </button>
+            <ModelSelector 
+              selectedModel={selectedModel} 
+              onModelChange={onModelChange} 
+            />
+          </div>
+        </div>
+      </header>
+      
+      <main className="flex-1 overflow-hidden flex flex-col container mx-auto max-w-4xl">
+        <div className="flex-1 overflow-y-auto p-4">
+          <ChatMessages messages={messages as any} />
+          
+          {isLoading && (
+            <div className="flex justify-start mt-2">
+              <div className="max-w-3xl p-3 rounded-lg bg-gray-200 dark:bg-gray-700">
+                <div className="flex items-center space-x-2">
+                  <div className="flex space-x-1">
+                    <span className="w-2 h-2 rounded-full bg-gray-500 animate-pulse" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-2 h-2 rounded-full bg-gray-500 animate-pulse" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-2 h-2 rounded-full bg-gray-500 animate-pulse" style={{ animationDelay: '300ms' }}></span>
+                  </div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">AI is thinking...</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800 shadow-md">
+          <FileUploader 
+            onUpload={handleFileUpload} 
+            isUploading={isUploading} 
+          />
+          <ChatInput 
+            input={input} 
+            handleInputChange={handleInputChange} 
+            handleSubmit={handleSubmit} 
+            isLoading={isLoading}
+            stop={stop}
+          />
+          {error && (
+            <div className="mt-2 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-800 dark:text-red-300 p-3 rounded-md text-sm flex items-start">
+              <svg className="w-5 h-5 mr-2 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                <p className="font-medium">Error: {error.message}</p>
+                <button 
+                  onClick={() => reload()}
+                  className="mt-1 text-sm text-red-600 dark:text-red-400 hover:underline"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+} 
+
+
+================================================
+File: app/generate/page.tsx
+================================================
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useChat, Message } from '@ai-sdk/react';
+import SplitPane from '../../components/SplitPane';
+import NavBar from '../../components/NavBar';
+import EnhancedChatInput from '../../components/EnhancedChatInput';
+import ConversationView from '../../components/ConversationView';
+import CodePreview from '../../components/CodePreview';
+
+type ModelType = 'grok-3-mini' | 'gemini-2-flash';
+
+export default function GeneratePage() {
+  const [selectedModel, setSelectedModel] = useState<ModelType>('grok-3-mini');
+  const [generatedCode, setGeneratedCode] = useState<string>('');
+  const [generatedJSX, setGeneratedJSX] = useState<string>('');
+  const [componentName, setComponentName] = useState<string>('');
+  const [componentsGenerated, setComponentsGenerated] = useState<{
+    name: string;
+    code: string;
+    jsx?: string;
+    timestamp: string;
+  }[]>([]);
+  
+  // Use the chat hook
+  const { 
+    messages, 
+    input, 
+    handleInputChange, 
+    handleSubmit, 
+    isLoading, 
+    reload, 
+    stop, 
+    error, 
+    setMessages,
+    append
+  } = useChat({
+    api: '/api/chat',
+    body: {
+      model: selectedModel,
+      mode: 'generate'
+    },
+    id: 'stem-ai-generate',
+    initialMessages: [
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: 'Describe a UI component you want me to create with React and Tailwind CSS.'
+      }
+    ],
+    onFinish: (message) => {
+      // Look for tool invocations
+      const toolCall = message.toolInvocations?.find(tool => 
+        tool.toolName === 'generateReactComponent' && tool.state === 'result'
+      );
+      
+      if (toolCall?.state === 'result') {
+        const result = toolCall.result as any;
+        setGeneratedCode(result.jsx || '');
+        setGeneratedJSX(result.jsx || '');
+        setComponentName(result.componentName || 'Component');
+        
+        // Add to generated components
+        setComponentsGenerated(prev => [
+          {
+            name: result.componentName || 'Component',
+            code: result.jsx || '',
+            jsx: result.jsx,
+            timestamp: result.timestamp || new Date().toISOString()
+          },
+          ...prev
+        ]);
+      }
+    }
+  });
+
+  const handleModelChange = (model: ModelType) => {
+    setSelectedModel(model);
+    
+    // Add a system message announcing the model change
+    append({
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: `Switching to ${model === 'grok-3-mini' ? 'Grok-3-Mini' : 'Gemini 2.0 Flash'} model. Describe a component you want me to create.`
+    });
+  };
+
+  const handleNewChat = () => {
+    if (messages.length > 1) {
+      if (window.confirm('Start a new design session? This will clear the current conversation.')) {
+        setMessages([{
+          id: 'welcome',
+          role: 'assistant',
+          content: 'Describe a UI component you want me to create with React and Tailwind CSS.'
+        }]);
+        setGeneratedCode('');
+        setGeneratedJSX('');
+        setComponentName('');
+      }
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-screen overflow-hidden">
+      <NavBar 
+        selectedModel={selectedModel} 
+        onModelChange={handleModelChange}
+        onNewChat={handleNewChat}
+      />
+      
+      <SplitPane
+        left={
+          <div className="flex flex-col h-full">
+            <div className="overflow-hidden flex-1">
+              <ConversationView 
+                messages={messages} 
+                isLoading={isLoading} 
+              />
+            </div>
+            <EnhancedChatInput
+              input={input}
+              handleInputChange={handleInputChange}
+              handleSubmit={handleSubmit}
+              isLoading={isLoading}
+              placeholder="Describe a UI component or pattern..."
+              stop={stop}
+            />
+          </div>
+        }
+        right={
+          <CodePreview
+            code={generatedCode}
+            jsx={generatedJSX}
+          />
+        }
+      />
+      
+      {error && (
+        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-600 text-white rounded-lg">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="font-medium">Error: {error.message}</p>
+              <button 
+                onClick={() => reload()}
+                className="text-sm mt-1 underline"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+} 
+
+
+================================================
+File: components/ChatInput.tsx
+================================================
+import React, { FormEvent, useRef, useEffect, useState } from 'react';
+
+interface ChatInputProps {
+  input: string;
+  handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  handleSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  isLoading: boolean;
+  stop?: () => void;
+}
+
+export default function ChatInput({
+  input,
+  handleInputChange,
+  handleSubmit,
+  isLoading,
+  stop,
+}: ChatInputProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  
+  // Auto-resize the textarea based on content
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Reset height to auto to get the correct scrollHeight
+      textareaRef.current.style.height = 'auto';
+      // Set the height to the scrollHeight
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    }
+  }, [input]);
+
+  return (
+    <form 
+      onSubmit={handleSubmit} 
+      className="flex items-end gap-2 relative"
+    >
+      <div className={`flex-1 relative transition-all duration-200 ${isFocused ? 'ring-2 ring-blue-500 ring-opacity-50' : ''}`}>
+        <textarea
+          ref={textareaRef}
+          className="w-full p-3 pr-12 rounded-lg border border-gray-300 focus:outline-none resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white min-h-[44px] max-h-[200px] shadow-sm transition-all"
+          rows={1}
+          placeholder="Ask a STEM question..."
+          value={input}
+          onChange={handleInputChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              if (input.trim()) {
+                handleSubmit(e as unknown as FormEvent<HTMLFormElement>);
+              }
+            }
+          }}
+          disabled={isLoading}
+        />
+        
+        {/* Character count and tips */}
+        <div className="absolute right-2 bottom-2 text-xs text-gray-400 flex items-center">
+          {input.length > 0 && (
+            <>
+              <span className={`transition-colors ${input.length > 1000 ? 'text-yellow-500' : ''}`}>
+                {input.length}
+              </span>
+              <span className="mx-1">â€¢</span>
+            </>
+          )}
+          <span>Shift+Enter for new line</span>
+        </div>
+      </div>
+      
+      {isLoading ? (
+        <button
+          type="button"
+          onClick={stop}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 h-[44px] min-w-[80px] shadow-sm flex items-center justify-center transition-colors"
+        >
+          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Stop
+        </button>
+      ) : (
+        <button
+          type="submit"
+          disabled={isLoading || !input.trim()}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 hover:bg-blue-700 h-[44px] min-w-[80px] shadow-sm flex items-center justify-center transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+          Send
+        </button>
+      )}
+      
+      {/* Micro animations to improve feel */}
+      {isLoading && (
+        <div className="absolute -top-6 left-0 right-0 flex justify-center">
+          <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs py-1 px-2 rounded-full flex items-center animate-pulse">
+            <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            AI is responding...
+          </div>
+        </div>
+      )}
+    </form>
+  );
+} 
+
+
+================================================
+File: components/ChatMessages.tsx
+================================================
+import React from 'react';
+import { Message } from 'ai';
+
+interface ChatMessagesProps {
+  messages: Message[];
+}
+
+// Custom handling for tool invocation structure
+interface ToolCall {
+  name?: string;
+  tool?: string;
+  parameters?: Record<string, any>;
+  input?: Record<string, any>;
+  result?: any;
+}
+
+// Custom message part for images
+interface ImagePart {
+  type: 'image';
+  image: {
+    url: string;
+    alt?: string;
+  }
+}
+
+// Extended message part that includes our custom types
+type ExtendedMessagePart = 
+  | { type: 'text'; text: string }
+  | { type: 'tool-invocation'; toolInvocation: any }
+  | { type: 'reasoning'; reasoning: string }
+  | ImagePart;
+
+// Extended message type with our custom parts
+interface ExtendedMessage extends Omit<Message, 'parts'> {
+  parts?: ExtendedMessagePart[];
+}
+
+export default function ChatMessages({ messages }: { messages: ExtendedMessage[] }) {
+  // Function to format code blocks
+  const formatContent = (content: string) => {
+    if (!content) return null;
+    
+    // Regex to match code blocks
+    const codeBlockRegex = /```(.+?)\n([\s\S]*?)```/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      // Add text before the code block
+      if (match.index > lastIndex) {
+        parts.push(
+          <span key={`text-${lastIndex}`} className="whitespace-pre-wrap">
+            {content.slice(lastIndex, match.index)}
+          </span>
+        );
+      }
+      
+      // Add the code block
+      const language = match[1].trim();
+      const code = match[2];
+      parts.push(
+        <div key={`code-${match.index}`} className="my-2 overflow-hidden rounded-md">
+          <div className="bg-gray-800 px-4 py-1 text-xs text-gray-200">
+            {language}
+          </div>
+          <pre className="bg-gray-900 p-4 overflow-auto text-gray-300 text-sm">
+            <code>{code}</code>
+          </pre>
+        </div>
+      );
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < content.length) {
+      parts.push(
+        <span key={`text-${lastIndex}`} className="whitespace-pre-wrap">
+          {content.slice(lastIndex)}
+        </span>
+      );
+    }
+    
+    return parts.length > 0 ? parts : <span className="whitespace-pre-wrap">{content}</span>;
+  };
+
+  return (
+    <div className="space-y-4">
+      {messages.map((message) => (
+        <div
+          key={message.id}
+          className={`flex ${
+            message.role === 'user' ? 'justify-end' : 'justify-start'
+          }`}
+        >
+          <div
+            className={`max-w-3xl p-4 rounded-lg ${
+              message.role === 'user'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 dark:text-white'
+            }`}
+          >
+            <div className="text-sm font-semibold mb-1">
+              {message.role === 'user' ? 'You' : 'AI Assistant'}
+            </div>
+            {message.content ? (
+              <div>{formatContent(message.content)}</div>
+            ) : (
+              <div>
+                {message.parts?.map((part, i) => {
+                  switch (part.type) {
+                    case 'text':
+                      return <div key={`${message.id}-${i}`}>{formatContent(part.text)}</div>;
+                    case 'tool-invocation':
+                      const toolCall = part.toolInvocation as unknown as ToolCall;
+                      const toolName = toolCall.name || toolCall.tool || 'unknown';
+                      const toolInput = toolCall.input || toolCall.parameters;
+                      return (
+                        <div key={`${message.id}-${i}`} className="my-2 rounded border border-gray-300 dark:border-gray-600 overflow-hidden">
+                          <div className="text-xs font-mono bg-blue-100 dark:bg-blue-900/30 p-2 flex items-center">
+                            <svg className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="font-semibold">Using tool: {toolName}</span>
+                          </div>
+                          {toolInput && (
+                            <div className="text-xs font-mono bg-gray-100 dark:bg-gray-800 p-2">
+                              <div className="font-semibold mb-1">Parameters:</div>
+                              <pre className="whitespace-pre-wrap overflow-auto">
+                                {JSON.stringify(toolInput, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          {toolCall.result && (
+                            <div className="text-xs font-mono bg-green-50 dark:bg-green-900/20 p-2">
+                              <div className="font-semibold mb-1 flex items-center">
+                                <svg className="h-4 w-4 mr-1 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Result:
+                              </div>
+                              <pre className="whitespace-pre-wrap overflow-auto">
+                                {JSON.stringify(toolCall.result, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    case 'reasoning':
+                      return (
+                        <div key={`${message.id}-${i}`} className="my-2 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded italic border border-yellow-200 dark:border-yellow-800/50">
+                          <div className="text-xs font-semibold mb-1 flex items-center">
+                            <svg className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                            Reasoning:
+                          </div>
+                          <div className="whitespace-pre-wrap">{part.reasoning}</div>
+                        </div>
+                      );
+                    case 'image':
+                      // Support for image responses
+                      return (
+                        <div key={`${message.id}-${i}`} className="my-2">
+                          <img 
+                            src={part.image?.url} 
+                            alt={part.image?.alt || "Generated image"} 
+                            className="max-w-full rounded-md shadow-md"
+                          />
+                          {part.image?.alt && (
+                            <div className="text-xs text-gray-500 mt-1">{part.image.alt}</div>
+                          )}
+                        </div>
+                      );
+                    default:
+                      return null;
+                  }
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+      {messages.length === 0 && (
+        <div className="text-center py-12 text-gray-500 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+          <svg className="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+          <p className="text-lg font-medium mt-2">Welcome to the STEM AI Assistant!</p>
+          <p className="mt-1">Ask me anything about science, technology, engineering, or math.</p>
+        </div>
+      )}
+    </div>
+  );
+} 
+
+
+================================================
+File: components/CodePreview.tsx
+================================================
+import React, { useState, useEffect } from 'react';
+
+interface CodePreviewProps {
+  code: string;
+  jsx?: string;
+}
+
+// Component that displays both the code and its live preview
+export default function CodePreview({ code, jsx }: CodePreviewProps) {
+  const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
+  
+  // For real implementation, you'd use something like React's dynamic import
+  // or libraries like react-live to render the JSX
+  const PreviewContent = () => {
+    if (!jsx) {
+      return (
+        <div className="flex h-full items-center justify-center text-gray-400">
+          <p>No preview available yet</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="w-full h-full overflow-auto p-6">
+        {/* This would be replaced with actual dynamic component rendering */}
+        <div 
+          className="preview-container bg-gray-900 p-4 rounded-lg border border-gray-800"
+          dangerouslySetInnerHTML={{ __html: jsx }} 
+        />
+      </div>
+    );
+  };
+  
+  const CodeContent = () => {
+    if (!code) {
+      return (
+        <div className="flex h-full items-center justify-center text-gray-400">
+          <p>No code generated yet</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="w-full h-full overflow-auto">
+        <pre className="p-4 text-sm font-mono text-gray-300 bg-gray-900 rounded-lg">
+          <code>{code}</code>
+        </pre>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex border-b border-gray-800">
+        <button
+          className={`px-4 py-2 text-sm transition-colors ${
+            activeTab === 'preview'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+          onClick={() => setActiveTab('preview')}
+        >
+          Preview
+        </button>
+        <button
+          className={`px-4 py-2 text-sm transition-colors ${
+            activeTab === 'code'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+          onClick={() => setActiveTab('code')}
+        >
+          Code
+        </button>
+        <div className="ml-auto flex items-center pr-4">
+          <button
+            className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800"
+            title="Copy code"
+            onClick={() => {
+              if (code) {
+                navigator.clipboard.writeText(code);
+              }
+            }}
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'preview' ? <PreviewContent /> : <CodeContent />}
+      </div>
+    </div>
+  );
+} 
+
+
+================================================
+File: components/ConversationView.tsx
+================================================
+import React from 'react';
+import { Message } from '@ai-sdk/react';
+
+interface ConversationViewProps {
+  messages: Message[];
+  isLoading?: boolean;
+}
+
+export default function ConversationView({ messages, isLoading = false }: ConversationViewProps) {
+  // Helper function to format code blocks
+  const formatMessageContent = (content: string) => {
+    if (!content) return null;
+    
+    // Regex to match code blocks
+    const codeBlockRegex = /```(.+?)?\n([\s\S]*?)```/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      // Add text before the code block
+      if (match.index > lastIndex) {
+        parts.push(
+          <div key={lastIndex} className="whitespace-pre-wrap">
+            {content.substring(lastIndex, match.index)}
+          </div>
+        );
+      }
+      
+      // Add the code block
+      const language = match[1] ? match[1].trim() : '';
+      const code = match[2];
+      
+      parts.push(
+        <div key={match.index} className="my-2 overflow-x-auto rounded-md">
+          <div className="flex items-center justify-between bg-gray-800 px-4 py-1.5 text-xs text-gray-400">
+            <span>{language || 'code'}</span>
+            <button
+              onClick={() => navigator.clipboard.writeText(code)}
+              className="text-gray-400 hover:text-white transition-colors"
+              title="Copy code"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="14" 
+                height="14" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+              </svg>
+            </button>
+          </div>
+          <pre className="p-4 overflow-auto text-sm text-gray-300 bg-gray-900">
+            <code>{code}</code>
+          </pre>
+        </div>
+      );
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add any remaining text after the last code block
+    if (lastIndex < content.length) {
+      parts.push(
+        <div key={lastIndex} className="whitespace-pre-wrap">
+          {content.substring(lastIndex)}
+        </div>
+      );
+    }
+    
+    return parts.length > 0 ? parts : <div className="whitespace-pre-wrap">{content}</div>;
+  };
+
+  // Typing indicator component
+  const TypingIndicator = () => (
+    <div className="flex space-x-1 mt-1">
+      <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style={{ animationDelay: '0ms' }}></div>
+      <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style={{ animationDelay: '300ms' }}></div>
+      <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style={{ animationDelay: '600ms' }}></div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {messages.map((message) => (
+          <div 
+            key={message.id} 
+            className={`flex items-start ${
+              message.role === 'user' ? 'justify-end' : 'justify-start'
+            }`}
+          >
+            <div 
+              className={`max-w-[80%] rounded-lg p-4 ${
+                message.role === 'user' 
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-100'
+              }`}
+            >
+              {formatMessageContent(message.content)}
+              
+              {/* Show toolInvocations if they exist */}
+              {message.toolInvocations?.map((tool, index) => (
+                <div 
+                  key={`${message.id}-tool-${index}`}
+                  className="mt-3 rounded border border-gray-700 bg-gray-900 p-3"
+                >
+                  <div className="flex items-center text-xs text-gray-400 mb-2">
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      width="14" 
+                      height="14" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      className="mr-1"
+                    >
+                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                    </svg>
+                    <span>{tool.toolName}</span>
+                  </div>
+                  {tool.state === 'result' && (
+                    <pre className="text-xs overflow-auto whitespace-pre-wrap">
+                      {JSON.stringify(tool.result, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        
+        {isLoading && (
+          <div className="flex items-start justify-start">
+            <div className="max-w-[80%] rounded-lg p-4 bg-gray-800 text-gray-100">
+              <TypingIndicator />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+} 
+
+
+================================================
+File: components/EnhancedChatInput.tsx
+================================================
+import React, { useState, useRef, useEffect } from 'react';
+
+interface EnhancedChatInputProps {
+  input: string;
+  handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  isLoading: boolean;
+  placeholder?: string;
+  stop?: () => void;
+}
+
+export default function EnhancedChatInput({
+  input,
+  handleInputChange,
+  handleSubmit,
+  isLoading,
+  placeholder = "Describe a component or UI pattern...",
+  stop,
+}: EnhancedChatInputProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Auto-resize the textarea based on content
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const newHeight = Math.min(
+        Math.max(textareaRef.current.scrollHeight, 56), // Min height: 56px
+        300 // Max height: 300px
+      );
+      textareaRef.current.style.height = `${newHeight}px`;
+    }
+  }, [input]);
+
+  // Auto-focus on mount
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
+  return (
+    <div className="border-t border-gray-800 bg-gray-900 p-4">
+      <form 
+        onSubmit={handleSubmit}
+        className="relative max-w-3xl mx-auto"
+      >
+        <div 
+          className={`relative rounded-lg border ${
+            isFocused 
+              ? 'border-blue-500 ring-1 ring-blue-500/20' 
+              : 'border-gray-700 hover:border-gray-600'
+          } transition-all bg-gray-950`}
+        >
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleInputChange}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onKeyDown={(e) => {
+              // Submit on Cmd/Ctrl+Enter
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                if (input.trim()) {
+                  handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
+                }
+              }
+            }}
+            placeholder={placeholder}
+            disabled={isLoading}
+            className="w-full resize-none bg-transparent py-3 pl-4 pr-16 text-white focus:outline-none"
+            rows={1}
+          />
+          
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={stop}
+              className="absolute right-3 bottom-3 rounded-md p-1.5 text-gray-400 hover:text-gray-300 hover:bg-gray-800"
+              title="Stop generating"
+            >
+              <svg 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim() || isLoading}
+              className={`absolute right-3 bottom-3 rounded-md p-1.5 ${
+                input.trim() 
+                  ? 'text-blue-500 hover:text-blue-400 hover:bg-gray-800' 
+                  : 'text-gray-600 cursor-not-allowed'
+              }`}
+              title="Send message (Ctrl+Enter)"
+            >
+              <svg 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          )}
+        </div>
+        
+        <div className="mt-2 text-xs text-center text-gray-500">
+          {isLoading ? (
+            <div className="animate-pulse">Processing your request...</div>
+          ) : (
+            <div>
+              <span className="inline-block">Describe a UI component or pattern you want to create</span>
+              <span className="mx-1.5">â€¢</span>
+              <span className="inline-block">Press Ctrl+Enter to submit</span>
+            </div>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+} 
+
+
+================================================
+File: components/FileUploader.tsx
+================================================
+import React, { useRef, useState } from 'react';
+
+interface FileUploaderProps {
+  onUpload: (files: File[]) => void;
+  isUploading?: boolean;
+}
+
+export default function FileUploader({ onUpload, isUploading = false }: FileUploaderProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const filesArray = Array.from(e.dataTransfer.files) as File[];
+      setSelectedFiles(filesArray);
+      onUpload(filesArray);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files) as File[];
+      setSelectedFiles(filesArray);
+      onUpload(filesArray);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    
+    switch(extension) {
+      case 'pdf':
+        return (
+          <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
+            <path d="M3 8a2 2 0 012-2h2a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+          </svg>
+        );
+      case 'txt':
+        return (
+          <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+          </svg>
+        );
+      case 'doc':
+      case 'docx':
+        return (
+          <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M7 9a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm0 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clipRule="evenodd" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+          </svg>
+        );
+    }
+  };
+
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        disabled={isUploading}
+        className={`group relative flex items-center rounded-md text-sm px-3 py-2 text-gray-600 dark:text-gray-300 transition-all duration-200 ${
+          isUploading 
+            ? 'bg-gray-100 dark:bg-gray-800 opacity-70 cursor-not-allowed' 
+            : isDragging || isHovering
+              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300'
+              : 'bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-300'
+        }`}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+        onClick={triggerFileInput}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isUploading ? (
+          <>
+            <svg 
+              className="animate-spin w-5 h-5 mr-2 text-blue-500" 
+              xmlns="http://www.w3.org/2000/svg" 
+              fill="none" 
+              viewBox="0 0 24 24"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Uploading...</span>
+          </>
+        ) : (
+          <>
+            <svg
+              className={`w-5 h-5 mr-2 transition-colors duration-200 ${
+                isDragging || isHovering ? 'text-blue-500' : 'text-gray-400 group-hover:text-blue-500'
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              ></path>
+            </svg>
+            <span>
+              {isDragging ? 'Drop files here' : 'Upload documents'}
+              <span className="hidden sm:inline"> or drag and drop</span>
+            </span>
+            <span className="text-xs ml-2 text-gray-400">
+              (PDF, TXT, DOC, DOCX)
+            </span>
+          </>
+        )}
+      </button>
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={handleFileInputChange}
+        multiple
+        accept=".pdf,.txt,.doc,.docx"
+        disabled={isUploading}
+      />
+      
+      {/* File list */}
+      {selectedFiles.length > 0 && (
+        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
+          {selectedFiles.map((file, index) => (
+            <div key={`${file.name}-${index}`} className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+              {getFileIcon(file.name)}
+              <span className="ml-2 truncate">{file.name}</span>
+              <span className="ml-1 text-xs text-gray-400">
+                ({(file.size / 1024).toFixed(1)} KB)
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+} 
+
+
+================================================
+File: components/ModelSelector.tsx
+================================================
+import React, { useState } from 'react';
+
+type ModelType = 'grok-3-mini' | 'gemini-2-flask';
+
+interface ModelSelectorProps {
+  selectedModel: ModelType;
+  onModelChange: (model: ModelType) => void;
+}
+
+const models = [
+  { 
+    id: 'grok-3-mini', 
+    name: 'Grok-3-Mini', 
+    description: 'Fast and compact model by xAI',
+    tag: 'BETA',
+    performance: 'Fast',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-purple-400">
+        <path d="M12 16.01L16 12L12 7.99L8 12L12 16.01Z" fill="currentColor" />
+        <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  },
+  { 
+    id: 'gemini-2-flask', 
+    name: 'Gemini 2.0', 
+    description: 'Advanced Google AI model',
+    tag: 'Flash',
+    performance: 'Balanced',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-400">
+        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  },
+];
+
+export default function ModelSelector({ selectedModel, onModelChange }: ModelSelectorProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const currentModel = models.find(model => model.id === selectedModel) || models[0];
+
+  return (
+    <div className="relative">
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center space-x-1 bg-gray-700 hover:bg-gray-600 text-white rounded-md px-3 py-1.5 text-sm transition-colors"
+        >
+          <span className="flex items-center">
+            {currentModel.icon}
+            <span className="ml-2">{currentModel.name}</span>
+          </span>
+          <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-1 w-60 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 z-10">
+          <div className="py-1" role="menu" aria-orientation="vertical">
+            {models.map((model) => (
+              <button
+                key={model.id}
+                onClick={() => {
+                  onModelChange(model.id as ModelType);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2 text-sm ${
+                  model.id === selectedModel 
+                    ? 'bg-gray-700 text-white' 
+                    : 'text-gray-200 hover:bg-gray-700'
+                }`}
+                role="menuitem"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {model.icon}
+                    <span className="ml-2 font-medium">{model.name}</span>
+                  </div>
+                  {model.tag && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-opacity-20 font-medium ml-1 bg-blue-500 text-blue-300">
+                      {model.tag}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
+                  <span>{model.description}</span>
+                  <div className="flex items-center">
+                    <span className={`
+                      mr-1.5 px-1.5 py-0.5 rounded-full text-xs font-medium
+                      ${model.performance === 'Fast' 
+                        ? 'bg-green-900/20 text-green-300' 
+                        : 'bg-yellow-900/20 text-yellow-300'}
+                    `}>
+                      {model.performance}
+                    </span>
+                    {model.id === selectedModel && (
+                      <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+} 
+
+
+================================================
+File: components/NavBar.tsx
+================================================
+import React from 'react';
+import Link from 'next/link';
+
+interface NavBarProps {
+  selectedModel: string;
+  onModelChange: (model: any) => void;
+  onNewChat: () => void;
+}
+
+export default function NavBar({ selectedModel, onModelChange, onNewChat }: NavBarProps) {
+  return (
+    <div className="flex h-14 items-center justify-between border-b border-gray-800 px-4 bg-gray-900">
+      <div className="flex items-center space-x-4">
+        <Link href="/" className="flex items-center">
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width="24" 
+            height="24" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            className="text-blue-500 mr-2"
+          >
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+          <span className="font-semibold text-white">STEM AI</span>
+        </Link>
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <button
+          onClick={onNewChat}
+          className="flex items-center rounded-md px-3 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="mr-2"
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          New Chat
+        </button>
+        
+        <select
+          value={selectedModel}
+          onChange={(e) => onModelChange(e.target.value)}
+          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="grok-3-mini">Grok-3-Mini</option>
+          <option value="gemini-2-flask">Gemini 2.0</option>
+        </select>
+        
+        <div className="flex items-center border-l border-gray-700 pl-3 ml-2">
+          <a
+            href="https://github.com/vercel/ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 text-gray-400 hover:text-white rounded-md hover:bg-gray-800 transition-colors"
+            title="GitHub"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+} 
+
+
+================================================
+File: components/SplitPane.tsx
+================================================
+import React, { useState, useRef, useEffect } from 'react';
+
+interface SplitPaneProps {
+  left: React.ReactNode;
+  right: React.ReactNode;
+  initialSplit?: number; // Percentage for left pane (0-100)
+  minLeft?: number; // Minimum width in pixels for left pane
+  minRight?: number; // Minimum width in pixels for right pane
+}
+
+export default function SplitPane({
+  left,
+  right,
+  initialSplit = 40,
+  minLeft = 350,
+  minRight = 450,
+}: SplitPaneProps) {
+  const [leftWidth, setLeftWidth] = useState<number>(initialSplit);
+  const splitPaneRef = useRef<HTMLDivElement>(null);
+  const resizerRef = useRef<HTMLDivElement>(null);
+  const startXRef = useRef<number>(0);
+  const startLeftWidthRef = useRef<number>(initialSplit);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    startXRef.current = e.clientX;
+    startLeftWidthRef.current = leftWidth;
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    
+    // Disable text selection during resize
+    document.body.style.userSelect = 'none';
+  };
+  
+  const onMouseMove = (e: MouseEvent) => {
+    if (!splitPaneRef.current) return;
+    
+    const containerWidth = splitPaneRef.current.offsetWidth;
+    const dx = e.clientX - startXRef.current;
+    
+    // Calculate percentage change
+    const percentageDiff = (dx / containerWidth) * 100;
+    const newLeftWidth = Math.min(
+      Math.max(
+        startLeftWidthRef.current + percentageDiff,
+        (minLeft / containerWidth) * 100
+      ),
+      100 - ((minRight / containerWidth) * 100)
+    );
+    
+    setLeftWidth(newLeftWidth);
+  };
+  
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    
+    // Re-enable text selection
+    document.body.style.userSelect = '';
+  };
+  
+  // Clean up event listeners on component unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+  
+  return (
+    <div 
+      ref={splitPaneRef} 
+      className="flex h-full w-full overflow-hidden"
+    >
+      <div 
+        className="h-full overflow-auto"
+        style={{ width: `${leftWidth}%` }}
+      >
+        {left}
+      </div>
+      
+      <div 
+        ref={resizerRef}
+        className="resizer h-full"
+        onMouseDown={onMouseDown}
+      />
+      
+      <div 
+        className="h-full overflow-auto"
+        style={{ width: `${100 - leftWidth}%` }}
+      >
+        {right}
+      </div>
+    </div>
+  );
+} 
+
+
+================================================
+File: docs/README.md
+================================================
+# STEM AI Assistant Documentation
+
+Welcome to the STEM AI Assistant documentation! This comprehensive guide will help you understand, set up, and use the STEM AI Assistant application.
+
+## Table of Contents
+
+1. [Introduction](./introduction.md)
+2. [Getting Started](./getting-started.md)
+3. [Architecture](./architecture.md)
+4. [Components](./components.md)
+5. [API Reference](./api-reference.md)
+6. [Database Schema](./database-schema.md)
+7. [Deployment](./deployment.md)
+8. [Contributing](./contributing.md)
+
+## Quick Start
+
+For a quick start guide, please refer to the [Getting Started](./getting-started.md) section.
+
+## Features
+
+- **Multi-model AI Chat**: Choose between different AI models (Grok-3-mini, Gemini 2.0 Flash) for different capabilities
+- **Retrieval-Augmented Generation (RAG)**: Upload documents that the AI can reference when answering questions
+- **Document Search**: Semantic search using embeddings to find relevant information
+- **Modern UI**: Clean, responsive interface with dark mode support
+- **Real-time Streaming**: Messages stream in real-time for a natural conversation feel
+- **Tool Execution**: Support for AI-powered tool execution and multi-step reasoning
+
+## Contact
+
+For questions or support, please open an issue in the GitHub repository. 
+
+
+================================================
+File: docs/api-reference.md
+================================================
+# API Reference
+
+This document provides a detailed reference for the API endpoints available in the STEM AI Assistant application.
+
+## Overview
+
+The STEM AI Assistant provides two main API endpoints:
+
+1. **Chat API**: For sending messages and receiving AI responses
+2. **Documents API**: For uploading and processing documents for the RAG system
+
+All API endpoints are implemented as Next.js API Routes using the App Router pattern.
+
+## Chat API
+
+### Endpoint: `/api/chat`
+
+**Method**: `POST`
+
+**Purpose**: Submit user messages to the AI and receive streamed responses.
+
+**Request Body**:
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is quantum entanglement?"
+    },
+    {
+      "role": "assistant",
+      "content": "Quantum entanglement is a fascinating phenomenon in quantum physics..."
+    },
+    {
+      "role": "user",
+      "content": "Can you explain it more simply?"
+    }
+  ],
+  "model": "grok-3-mini"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `messages` | Array | Yes | Array of message objects representing the conversation history |
+| `model` | String | No | The AI model to use (default: "grok-3-mini") |
+
+Each message object in the `messages` array must include:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `role` | String | Either "user" or "assistant" |
+| `content` | String | The message content |
+
+**Response**:
+
+The response is a streamed data format that conforms to the AI SDK's streaming protocol. The content is delivered incrementally as the AI generates it.
+
+**Example Client Usage**:
+
+```typescript
+// Using the AI SDK's useChat hook
+const { messages, input, handleInputChange, handleSubmit } = useChat({
+  api: '/api/chat',
+  body: {
+    model: 'grok-3-mini'
+  },
+  maxSteps: 5
+});
+```
+
+```typescript
+// Manual fetch implementation
+const response = await fetch('/api/chat', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    messages: [{ role: 'user', content: 'What is quantum entanglement?' }],
+    model: 'grok-3-mini'
+  }),
+});
+
+// Handle streaming response
+if (response.body) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    const chunk = decoder.decode(value);
+    // Process chunk...
+  }
+}
+```
+
+**Implementation Details**:
+
+The chat endpoint performs the following steps:
+1. Extracts messages and model selection from the request
+2. Gets the latest user message
+3. Searches for relevant document chunks using vector similarity
+4. Adds relevant document content as context to the system prompt
+5. Selects the appropriate LLM based on model parameter
+6. Initiates a streaming text generation with the chosen model
+7. Returns the stream as a response
+
+## Documents API
+
+### Endpoint: `/api/documents`
+
+**Method**: `POST`
+
+**Purpose**: Upload and process documents for RAG capabilities.
+
+**Request Format**: `multipart/form-data`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | File | Yes | The document file to upload |
+
+**Supported File Types**:
+- Text (.txt)
+- PDF (.pdf)
+- Word Documents (.doc, .docx)
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "documentId": 123,
+  "message": "Document \"example.pdf\" uploaded and processed successfully"
+}
+```
+
+or in case of error:
+
+```json
+{
+  "error": "Failed to process document"
+}
+```
+
+**Response Fields**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | Boolean | Whether the upload was successful |
+| `documentId` | Number | The ID of the uploaded document (if successful) |
+| `message` | String | A success message (if successful) |
+| `error` | String | Error message (if unsuccessful) |
+
+**Example Client Usage**:
+
+```typescript
+// Using FormData
+const formData = new FormData();
+formData.append('file', file);
+
+const response = await fetch('/api/documents', {
+  method: 'POST',
+  body: formData,
+});
+
+const result = await response.json();
+if (result.success) {
+  console.log('Document uploaded:', result.message);
+} else {
+  console.error('Upload failed:', result.error);
+}
+```
+
+**Implementation Details**:
+
+The documents endpoint performs the following steps:
+1. Extracts the file from the form data
+2. Reads the text content from the file
+3. Stores the document metadata and content in the database
+4. Processes the document text into chunks
+5. Generates embeddings for each chunk
+6. Stores the chunks and embeddings in the database
+7. Returns a success response with the document ID
+
+## API Architecture
+
+### Error Handling
+
+All API endpoints implement error handling:
+
+1. **Input Validation**: Checks for required parameters
+2. **Try-Catch Blocks**: Wrap operations to catch and handle exceptions
+3. **Appropriate Status Codes**: Returns HTTP status codes that match the error condition
+4. **Error Messages**: Provides descriptive error messages
+
+### Streaming
+
+The chat API uses HTTP streaming to deliver results incrementally:
+
+1. The AI model generates tokens progressively
+2. Each token is immediately streamed to the client
+3. The client renders these tokens as they arrive
+4. This provides a more responsive user experience
+
+### Authentication
+
+The current implementation does not include authentication. In a production environment, you would want to add:
+
+1. **API Authentication**: Require API keys or tokens
+2. **Rate Limiting**: Prevent abuse by limiting requests
+3. **User Authentication**: Restrict access to authorized users
+
+## Internal API Functions
+
+### Document Processing
+
+**Function**: `addDocument(title: string, content: string): Promise<number>`
+
+**Location**: `lib/ai/documents.ts`
+
+**Purpose**: Adds a document to the database and generates embeddings.
+
+**Parameters**:
+- `title`: Document title (usually filename)
+- `content`: Document text content
+
+**Returns**: Promise resolving to the document ID
+
+### Document Search
+
+**Function**: `searchDocuments(query: string, limit = 5): Promise<Array<{...}>>`
+
+**Location**: `lib/ai/documents.ts`
+
+**Purpose**: Searches for relevant document chunks based on a query.
+
+**Parameters**:
+- `query`: The search query
+- `limit`: Maximum number of results (default: 5)
+
+**Returns**: Promise resolving to an array of matching document chunks with similarity scores
+
+### Embedding Generation
+
+**Function**: `generateEmbeddings(content: string): Promise<Array<{...}>>`
+
+**Location**: `lib/ai/embedding.ts`
+
+**Purpose**: Generates embeddings for text content.
+
+**Parameters**:
+- `content`: Text content to embed
+
+**Returns**: Promise resolving to an array of content chunks with their embeddings
+
+## Extension Points
+
+The API architecture is designed to be extensible:
+
+1. **New Models**: Add new AI models by extending the `getModelConfig` function
+2. **Additional Endpoints**: Add new API routes for features like saving conversations
+3. **Advanced RAG**: Implement more sophisticated document retrieval logic
+4. **User Profiles**: Add user-specific document collections and preferences 
+
+
+================================================
+File: docs/architecture.md
+================================================
+# STEM AI Assistant Architecture
+
+This document outlines the high-level architecture of the STEM AI Assistant application, explaining how the various components interact.
+
+## Overview
+
+The STEM AI Assistant is built using a modern Next.js App Router architecture, with React components on the frontend and serverless API routes on the backend. The application leverages the Vercel AI SDK for LLM interactions and a PostgreSQL database with pgvector for document storage and semantic search.
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Client Browser                       │
+└─────────────────┬───────────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Next.js Frontend                       │
+│                                                             │
+│   ┌───────────────┐   ┌───────────────┐   ┌───────────────┐  │
+│   │    Home Page  │   │   Chat Page   │   │  Components   │  │
+│   │   (app/page)  │   │ (app/chat/*)  │   │               │  │
+│   └───────────────┘   └───────────────┘   └───────────────┘  │
+│                                                             │
+└─────────────────┬───────────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Next.js API Routes                      │
+│                                                             │
+│   ┌───────────────┐   ┌───────────────┐                     │
+│   │   Chat API    │   │ Documents API │                     │
+│   │ (/api/chat/*) │   │(/api/docs/*)  │                     │
+│   └───────────────┘   └───────────────┘                     │
+│                                                             │
+└─────────────────┬───────────────────────┬───────────────────┘
+                  │                       │
+┌─────────────────▼───────────┐   ┌───────▼───────────────────┐
+│        AI Services          │   │      Database Layer        │
+│                            │   │                            │
+│   ┌───────────────────┐    │   │   ┌───────────────────┐    │
+│   │    Vercel AI SDK  │    │   │   │    Drizzle ORM    │    │
+│   └───────────────────┘    │   │   └───────────────────┘    │
+│                            │   │                            │
+│   ┌───────────────────┐    │   │   ┌───────────────────┐    │
+│   │  Model Providers  │    │   │   │     PostgreSQL    │    │
+│   │  (OpenAI/xAI/etc) │    │   │   │    with pgvector  │    │
+│   └───────────────────┘    │   │   └───────────────────┘    │
+│                            │   │                            │
+└────────────────────────────┘   └────────────────────────────┘
+```
+
+## Core Components
+
+### Frontend Layer
+
+1. **Home Page (`app/page.tsx`)**: 
+   - Simple landing page with a link to the chat interface
+   - Minimal static content with styling
+
+2. **Chat Page (`app/chat/page.tsx`)**:
+   - Main user interface for interacting with the AI
+   - Uses the `useChat` hook for connecting to the backend
+   - Manages state for chat messages, loading indicators, and error handling
+   - Includes model selection and document uploading interfaces
+
+3. **UI Components**:
+   - `ChatMessages`: Renders messages with support for different content types
+   - `ChatInput`: Auto-expanding input field with submit handling
+   - `FileUploader`: Drag-and-drop file upload component
+   - `ModelSelector`: Dropdown for selecting different AI models
+
+### Backend Layer
+
+1. **Chat API (`app/api/chat/route.ts`)**:
+   - Handles POST requests for chat interactions
+   - Extracts user messages and selects appropriate AI model
+   - Implements RAG by searching for relevant documents
+   - Streams AI responses back to the client
+
+2. **Documents API (`app/api/documents/route.ts`)**:
+   - Handles file uploads
+   - Processes document text and stores it in the database
+   - Creates embeddings for semantic search
+
+### Data Layer
+
+1. **Database Module (`lib/db/`)**:
+   - Sets up connection to PostgreSQL with Drizzle ORM
+   - Defines database schema for documents and chunks
+   - Handles queries and data manipulation
+
+2. **AI Utilities (`lib/ai/`)**:
+   - `documents.ts`: Functions for adding and searching documents
+   - `embedding.ts`: Functions for generating text embeddings
+
+## Data Flow
+
+1. **User Interaction**:
+   - User selects an AI model
+   - User uploads documents (optional)
+   - User sends a message
+
+2. **Message Processing**:
+   - Frontend sends message to `/api/chat` endpoint
+   - Backend searches for relevant document chunks
+   - Backend selects appropriate LLM based on user selection
+   - Backend generates a response with context from documents
+
+3. **Response Streaming**:
+   - Response is streamed back to frontend
+   - Frontend updates UI in real-time as tokens arrive
+   - Special message parts (reasoning, tool calls) are rendered appropriately
+
+4. **Document Handling**:
+   - Documents are uploaded to `/api/documents` endpoint
+   - Text is extracted and stored in the database
+   - Text is split into chunks
+   - Embeddings are generated for each chunk
+   - Chunks and embeddings are stored for later retrieval
+
+## Key Technical Details
+
+### LLM Integration
+
+The application uses the Vercel AI SDK to interact with multiple LLM providers:
+- **xAI** for Grok-3-mini model
+- **Google AI** for Gemini 2.0 Flash model
+- **OpenAI** as a fallback option
+
+Each model is configured with a specialized system prompt for STEM topics.
+
+### RAG Implementation
+
+The RAG (Retrieval-Augmented Generation) system works as follows:
+1. Document text is split into manageable chunks
+2. OpenAI's text-embedding-3-small model generates embeddings for each chunk
+3. Embeddings are stored in PostgreSQL using pgvector
+4. When a user asks a question, the question is converted to an embedding
+5. Vector similarity search finds the most relevant document chunks
+6. Relevant chunks are prepended to the system prompt as context
+7. The LLM generates a response that incorporates both its knowledge and the document context
+
+### Streaming Architecture
+
+The application uses HTTP streaming to deliver results in real-time:
+1. The `streamText` function from the AI SDK initiates streaming from the LLM
+2. `toDataStreamResponse` converts the stream to a proper HTTP response
+3. The `useChat` hook on the frontend connects to this stream
+4. UI updates incrementally as new tokens arrive
+
+## AI SDK and AI SDK UI Integration
+
+### AI SDK Core Features
+
+The application leverages Vercel's AI SDK core features:
+
+1. **Unified Model Interface**: The app uses the AI SDK to interact with multiple LLM providers through a consistent interface:
+   ```typescript
+   // Example from chat API route
+   const result = streamText({
+     model: selectedModel, // Could be openai(), xai(), or googleai() provider
+     messages,
+     system: systemPrompt,
+     maxSteps: 5 // For multi-step tool usage
+   });
+   ```
+
+2. **Streaming Text Generation**: Real-time token streaming with `streamText` and `toDataStreamResponse`:
+   ```typescript
+   // Streaming response to client
+   return result.toDataStreamResponse();
+   ```
+
+3. **Tool Calling**: Support for AI model to use external tools:
+   ```typescript
+   const result = streamText({
+     // ...
+     tools: {
+       searchDocuments: tool({
+         description: 'Search through uploaded documents for relevant information',
+         parameters: z.object({
+           query: z.string().describe('The search query'),
+         }),
+         execute: async ({ query }) => {
+           // Implement search functionality
+           return relevantResults;
+         }
+       })
+     }
+   });
+   ```
+
+4. **Provider Configuration**: Easy switching between different AI providers:
+   ```typescript
+   import { openai } from '@ai-sdk/openai';
+   import { xai } from '@ai-sdk/xai';
+   import { googleai } from '@ai-sdk/googleai';
+   
+   // Different model configurations
+   const models = {
+     'grok-3-mini': xai('grok-3-mini'),
+     'gemini-2-flash': googleai('gemini-2-flash'),
+     'fallback': openai('gpt-4o')
+   };
+   ```
+
+### AI SDK UI Features
+
+On the frontend, the application uses AI SDK UI components and hooks:
+
+1. **useChat Hook**: For managing the chat state and interactions:
+   ```tsx
+   // In app/chat/page.tsx
+   const { 
+     messages, 
+     input, 
+     handleInputChange, 
+     handleSubmit,
+     isLoading,
+     error,
+     stop,
+     reload,
+     append
+   } = useChat({
+     api: '/api/chat',
+     body: { model: selectedModel },
+     maxSteps: 5 // Enable multi-step reasoning and tool usage
+   });
+   ```
+
+2. **Message Parts Rendering**: Support for rendering different message part types:
+   ```tsx
+   // In ChatMessages component
+   {message.parts?.map((part, i) => {
+     switch (part.type) {
+       case 'text':
+         return <div key={`${message.id}-${i}`}>{part.text}</div>;
+       case 'tool-invocation':
+         return <ToolInvocation key={`${message.id}-${i}`} data={part.toolInvocation} />;
+       case 'reasoning':
+         return <Reasoning key={`${message.id}-${i}`} text={part.reasoning} />;
+     }
+   })}
+   ```
+
+3. **Error Handling**: Built-in error handling and retry functionality:
+   ```tsx
+   {error && (
+     <div className="error-container">
+       <p>Error: {error.message}</p>
+       <button onClick={reload}>Try again</button>
+     </div>
+   )}
+   ```
+
+4. **Loading States**: Managing UI state during generation:
+   ```tsx
+   {isLoading && (
+     <div className="loading-indicator">
+       <Spinner />
+       <button onClick={stop}>Stop generating</button>
+     </div>
+   )}
+   ```
+
+5. **Dynamic Message Updates**: Real-time updates as tokens stream in:
+   ```tsx
+   // AI SDK UI automatically handles updating the messages state
+   // as new tokens arrive without additional code
+   <div className="messages-container">
+     {messages.map(message => (
+       <ChatMessage key={message.id} message={message} />
+     ))}
+   </div>
+   ```
+
+These AI SDK features enable the STEM AI Assistant to provide fluid, interactive experiences with complex AI models while maintaining a clean separation between UI concerns and AI integration logic.
+
+## Design Decisions and Tradeoffs
+
+1. **Next.js App Router**: Chosen for its modern architecture and server component support, though slightly more complex than Pages Router.
+
+2. **Vercel AI SDK**: Provides a unified interface to multiple AI providers, simplifying model switching and streaming implementation.
+
+3. **PostgreSQL with pgvector**: Offers robust vector similarity search capabilities necessary for effective RAG, at the cost of more complex deployment requirements.
+
+4. **Drizzle ORM**: Lightweight TypeScript-first ORM that works well with serverless environments.
+
+5. **Multiple AI Models**: Provides flexibility and allows taking advantage of strengths of different models, though requires managing multiple API keys.
+
+## Future Architecture Extensions
+
+The architecture is designed to be extensible in several directions:
+
+1. **Additional AI Models**: New models can be added by extending the model configuration system.
+
+2. **Tool Integration**: The maxSteps parameter allows for multi-step tool executions.
+
+3. **Authentication**: Could be added using Next.js middleware and auth providers.
+
+4. **Multi-modal Support**: The application could be extended to handle image inputs with minimal changes to the architecture.
+
+5. **Citation System**: A source attribution system could be added to track which documents were used in responses.
+
+## Generative UI Features
+
+The application includes a v0.dev-like UI generation feature that allows users to:
+
+1. **Generate React Components**: Create React components using natural language descriptions through an interface similar to v0.dev.
+2. **Preview Generated Components**: See a real-time preview of the generated code in a split-pane interface.
+3. **Copy and Export Code**: Export generated components for use in other projects.
+
+### Implementation Architecture
+
+The Generative UI feature builds upon the existing AI SDK architecture and extends it with additional components:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Generative UI Frontend                   │
+│                                                             │
+│   ┌───────────────┐   ┌───────────────┐   ┌───────────────┐  │
+│   │  SplitPane    │   │ CodePreview   │   │ EnhancedChat  │  │
+│   │  Component    │   │  Component    │   │   Component   │  │
+│   └───────────────┘   └───────────────┘   └───────────────┘  │
+│                                                             │
+└─────────────────┬───────────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Enhanced Chat API Route                   │
+│                                                             │
+│   ┌───────────────────────────────────────────────────────┐  │
+│   │ Function Calling for Component Generation (Tools API)  │  │
+│   └───────────────────────────────────────────────────────┘  │
+│                                                             │
+└─────────────────┬───────────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    AI Model Integration                      │
+│                                                             │
+│   ┌───────────────────────────────────────────────────────┐  │
+│   │    Specialized System Prompt for UI Generation         │  │
+│   └───────────────────────────────────────────────────────┘  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Key Components
+
+1. **SplitPane Component**: Provides a resizable two-panel layout with the chat interface on the left and the code preview on the right.
+
+2. **CodePreview Component**: Renders both the generated code and its preview, allowing users to toggle between the two views.
+
+3. **EnhancedChatInput Component**: A code-editor-like input that provides a better experience for describing UI components.
+
+4. **ConversationView Component**: Displays the chat history with formatted code blocks and tool invocations.
+
+5. **NavBar Component**: Provides navigation, model selection, and session management functions.
+
+### Tools API Implementation
+
+The component generation leverages Function Calling (Tools API) of the AI SDK:
+
+```typescript
+// Example of the Tool Definition for Component Generation
+tools: {
+  generateReactComponent: {
+    description: 'Generate a React component based on the user request',
+    parameters: z.object({
+      jsx: z.string().describe('The React JSX code for the component'),
+      componentName: z.string().describe('The name of the component'),
+      description: z.string().describe('A brief description of what the component does'),
+    }),
+    execute: async function ({ jsx, componentName, description }) {
+      return {
+        jsx,
+        componentName,
+        description,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+}
+```
+
+This implementation allows the AI model to return structured data that can be rendered as React components, providing a user experience similar to v0.dev but integrated directly into the STEM AI Assistant platform. 
+
+
+================================================
+File: docs/components.md
+================================================
+# STEM AI Assistant Components
+
+This document provides detailed information about the UI components used in the STEM AI Assistant application.
+
+## Component Overview
+
+STEM AI Assistant is built with a modular component architecture in React. The major UI components include:
+
+1. **ChatMessages**: Displays messages exchanged between the user and AI
+2. **ChatInput**: Handles user text input with auto-expanding capability
+3. **FileUploader**: Manages document uploads with drag-and-drop support
+4. **ModelSelector**: Provides selection between different AI models
+
+## ChatMessages Component
+
+**Location**: `components/ChatMessages.tsx`
+
+**Purpose**: Renders the conversation between the user and the AI, handling different message formats.
+
+**Props**:
+- `messages`: Array of Message objects from the AI SDK
+
+**Key Features**:
+- Different styling for user and AI messages
+- Support for rendering complex message parts:
+  - Text parts
+  - Tool invocation parts (with inputs and results)
+  - Reasoning parts (showing the AI's thought process)
+- Welcoming message when no messages are present
+- Dark mode support
+
+**Code Sample**:
+```tsx
+export default function ChatMessages({ messages }: ChatMessagesProps) {
+  return (
+    <div className="space-y-4">
+      {messages.map((message) => (
+        <div
+          key={message.id}
+          className={`flex ${
+            message.role === 'user' ? 'justify-end' : 'justify-start'
+          }`}
+        >
+          {/* Message bubble */}
+          <div
+            className={`max-w-3xl p-4 rounded-lg ${
+              message.role === 'user'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 dark:text-white'
+            }`}
+          >
+            {/* Message header */}
+            <div className="text-sm font-semibold mb-1">
+              {message.role === 'user' ? 'You' : 'AI Assistant'}
+            </div>
+            
+            {/* Message content */}
+            {message.content ? (
+              <div className="whitespace-pre-wrap">{message.content}</div>
+            ) : (
+              <div>
+                {/* Handle different message part types */}
+                {message.parts?.map((part, i) => {
+                  switch (part.type) {
+                    case 'text':
+                      return <div key={`${message.id}-${i}`} className="whitespace-pre-wrap">{part.text}</div>;
+                    case 'tool-invocation':
+                      // Tool invocation rendering
+                    case 'reasoning':
+                      // Reasoning rendering
+                    default:
+                      return null;
+                  }
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+      
+      {/* Welcome message when no messages */}
+      {messages.length === 0 && (
+        <div className="text-center py-8 text-gray-500">
+          <p className="text-lg font-medium">Welcome to the STEM AI Assistant!</p>
+          <p className="mt-1">Ask me anything about science, technology, engineering, or math.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## ChatInput Component
+
+**Location**: `components/ChatInput.tsx`
+
+**Purpose**: Provides a text input area for users to submit questions to the AI.
+
+**Props**:
+- `input`: Current text input value
+- `handleInputChange`: Function to update input value
+- `handleSubmit`: Function to submit the form
+- `isLoading`: Boolean indicating if a request is in progress
+
+**Key Features**:
+- Auto-expanding textarea that grows with content
+- Character count display
+- Submit on Enter (with Shift+Enter for new line)
+- Loading state indication with spinner
+- Disable during loading state
+- Dark mode support
+
+**Code Sample**:
+```tsx
+export default function ChatInput({
+  input,
+  handleInputChange,
+  handleSubmit,
+  isLoading,
+}: ChatInputProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Auto-resize the textarea based on content
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    }
+  }, [input]);
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-end gap-2">
+      <div className="flex-1 relative">
+        <textarea
+          ref={textareaRef}
+          className="w-full p-3 pr-12 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-white min-h-[44px] max-h-[200px] shadow-sm transition-all"
+          rows={1}
+          placeholder="Ask a STEM question..."
+          value={input}
+          onChange={handleInputChange}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              if (input.trim()) {
+                handleSubmit(e as unknown as FormEvent<HTMLFormElement>);
+              }
+            }
+          }}
+          disabled={isLoading}
+        />
+        <div className="absolute right-2 bottom-2 text-xs text-gray-400">
+          {input.length > 0 && `${input.length} chars â€¢ Shift+Enter for new line`}
+        </div>
+      </div>
+      <button
+        type="submit"
+        disabled={isLoading || !input.trim()}
+        className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 hover:bg-blue-700 h-[44px] min-w-[80px] shadow-sm flex items-center justify-center transition-colors"
+      >
+        {isLoading ? (
+          <span className="inline-flex items-center">
+            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Sending</span>
+          </span>
+        ) : (
+          <span className="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+            Send
+          </span>
+        )}
+      </button>
+    </form>
+  );
+}
+```
+
+## FileUploader Component
+
+**Location**: `components/FileUploader.tsx`
+
+**Purpose**: Enables users to upload documents for the RAG system.
+
+**Props**:
+- `onUpload`: Callback function triggered when files are selected
+
+**Key Features**:
+- Button-style uploader with clear visual feedback
+- Drag-and-drop interface with hover and active states
+- File type filtering (.pdf, .txt, .doc, .docx)
+- Multiple file upload support
+- Responsive design (hides extended text on small screens)
+- Dark mode support
+
+**Code Sample**:
+```tsx
+export default function FileUploader({ onUpload }: FileUploaderProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Event handlers for drag interactions
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const filesArray = Array.from(e.dataTransfer.files) as File[];
+      onUpload(filesArray);
+    }
+  };
+
+  // Handle manual file selection
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files) as File[];
+      onUpload(filesArray);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        className={`group relative flex items-center rounded-md text-sm px-3 py-2 text-gray-600 dark:text-gray-300 transition-all duration-200 ${
+          isDragging || isHovering
+            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300'
+            : 'bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-300'
+        }`}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+        onClick={triggerFileInput}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Upload icon */}
+        <svg className="..." />
+        <span>
+          {isDragging ? 'Drop files here' : 'Upload documents'}
+          <span className="hidden sm:inline"> or drag and drop</span>
+        </span>
+        <span className="text-xs ml-2 text-gray-400">
+          (PDF, TXT, DOC, DOCX)
+        </span>
+      </button>
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={handleFileInputChange}
+        multiple
+        accept=".pdf,.txt,.doc,.docx"
+      />
+    </div>
+  );
+}
+```
+
+## ModelSelector Component
+
+**Location**: `components/ModelSelector.tsx`
+
+**Purpose**: Allows users to select which AI model to use for responses.
+
+**Props**:
+- `selectedModel`: Currently selected model
+- `onModelChange`: Callback function when a model is selected
+
+**Key Features**:
+- Dropdown selector with model options
+- Styled to match the application theme
+- Responsive design
+- Dark mode compatible
+
+**Code Sample**:
+```tsx
+export default function ModelSelector({ selectedModel, onModelChange }: ModelSelectorProps) {
+  return (
+    <div className="flex items-center">
+      <label htmlFor="model-selector" className="mr-2 text-sm">
+        Model:
+      </label>
+      <select
+        id="model-selector"
+        value={selectedModel}
+        onChange={(e) => onModelChange(e.target.value as ModelType)}
+        className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm"
+      >
+        {models.map((model) => (
+          <option key={model.id} value={model.id}>
+            {model.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+```
+
+## Chat Page Layout
+
+**Location**: `app/chat/page.tsx`
+
+**Purpose**: Manages the overall chat interface and orchestrates component interactions.
+
+**Key Features**:
+- Uses all the above components in a cohesive layout
+- Manages chat state using the `useChat` hook
+- Handles file upload process and messaging
+- Displays loading and error states
+- Provides stop generation button when processing
+- Responsive container layout
+- Dark mode support
+- Mobile-friendly design
+
+## Theming and Styling
+
+The components use Tailwind CSS for styling with the following highlights:
+
+- **Color Palette**: Blues for primary actions, grays for UI elements
+- **Dark Mode**: Full support with dark mode variants for all components
+- **Responsiveness**: Components adapt to different screen sizes
+- **Animation**: Subtle transitions for hover states and loading indicators
+- **Typography**: Consistent font sizing and weighting throughout the UI
+- **Accessibility**: Proper contrast ratios and semantic HTML
+
+## Component Communication
+
+Components in the STEM AI Assistant communicate through:
+
+1. **Props Down**: Parent components pass data and callbacks to children
+2. **Events Up**: Child components trigger callbacks to notify parents
+3. **Global State**: The `useChat` hook manages shared state for the chat system
+4. **API Calls**: Components interact with backend services through API endpoints
+
+## Adding New Components
+
+When adding new components to the system:
+
+1. Create a new file in the `components/` directory
+2. Define a TypeScript interface for the component props
+3. Implement the component using functional React patterns
+4. Add appropriate styling using Tailwind classes
+5. Integrate the component into the appropriate page or parent component 
+
+
+================================================
+File: docs/contributing.md
+================================================
+# Contributing to STEM AI Assistant
+
+Thank you for considering contributing to the STEM AI Assistant! This document provides guidelines and instructions for contributing to the project.
+
+## Code of Conduct
+
+By participating in this project, you agree to maintain a respectful and inclusive environment. Please be considerate of others' perspectives and experiences.
+
+## How to Contribute
+
+There are many ways to contribute to the STEM AI Assistant:
+
+1. **Code Contributions**: Implement new features or fix bugs
+2. **Documentation**: Improve or extend documentation
+3. **Testing**: Test the application and report issues
+4. **Ideas**: Suggest new features or improvements
+
+## Development Setup
+
+### Prerequisites
+
+1. Node.js 18.x or higher
+2. npm or pnpm
+3. PostgreSQL with pgvector extension
+4. API keys for OpenAI, xAI, and Google AI
+
+### Local Development Environment
+
+1. **Fork and clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/stemAI.git
+   cd stemAI
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   # or
+   pnpm install
+   ```
+
+3. **Set up environment variables**:
+   Create a `.env.local` file with the following content:
+   ```env
+   # OpenAI API Key (required)
+   OPENAI_API_KEY=your_openai_api_key
+
+   # Google API Key (for Gemini models)
+   GOOGLE_API_KEY=your_google_api_key
+
+   # xAI API Key (required for Grok models)
+   XAI_API_KEY=your_xai_api_key
+
+   # Database URL (required)
+   DATABASE_URL=postgres://username:password@localhost:5432/stemai
+   ```
+
+4. **Start the development server**:
+   ```bash
+   npm run dev
+   # or
+   pnpm dev
+   ```
+
+5. **Open your browser** to http://localhost:3000
+
+## Git Workflow
+
+We follow a standard GitHub flow for contributions:
+
+1. **Create a branch** for your feature or bugfix:
+   ```bash
+   git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/issue-you-are-fixing
+   ```
+
+2. **Make your changes** and commit them with clear, descriptive messages:
+   ```bash
+   git commit -m "Add feature: description of your changes"
+   ```
+
+3. **Push your branch** to your fork:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+4. **Create a Pull Request** against the main repository's `main` branch
+
+## Pull Request Guidelines
+
+When submitting a pull request:
+
+1. **Describe your changes** in detail
+2. **Reference any related issues** using GitHub's issue linking syntax (#issue-number)
+3. **Include screenshots** for UI changes
+4. **Update documentation** if necessary
+5. **Ensure all tests pass** and add new tests for new functionality
+6. **Follow the code style** of the project
+
+## Code Style
+
+We use ESLint and Prettier to maintain code quality and consistency:
+
+- **Run linting**: `npm run lint`
+- **Fix linting issues**: `npm run lint:fix`
+- **Format code**: `npm run format`
+
+Please ensure your code follows the existing style before submitting a pull request.
+
+## Testing
+
+We value well-tested code. When adding new features or fixing bugs:
+
+1. **Write tests** that verify your changes
+2. **Run existing tests** to ensure you haven't broken anything:
+   ```bash
+   npm run test
+   ```
+
+## Adding New Features
+
+When adding new features:
+
+1. **Discuss first**: Create an issue to discuss the feature before implementation
+2. **Follow the architecture**: Review existing code to understand the architecture
+3. **Update documentation**: Add or update documentation for your feature
+4. **Consider performance**: Ensure your feature doesn't negatively impact performance
+
+### Adding a New AI Model
+
+To add support for a new AI model:
+
+1. Install the required AI SDK provider package:
+   ```bash
+   npm install @ai-sdk/new-provider
+   # or
+   pnpm add @ai-sdk/new-provider
+   ```
+
+2. Update the `getModelConfig` function in `app/api/chat/route.ts`:
+   ```typescript
+   import { newProvider } from '@ai-sdk/new-provider';
+   
+   // In the getModelConfig function
+   case 'new-model-id':
+     return {
+       model: newProvider('model-name'),
+       system: `You are a helpful STEM assistant powered by New Model.
+       Focus on providing accurate, educational information about science, technology, engineering, and mathematics.
+       Explain concepts clearly and provide examples where appropriate.
+       If you're unsure about something, acknowledge the limits of your knowledge instead of making up information.`,
+     };
+   ```
+
+3. Update the `ModelSelector` component to include your new model:
+   ```typescript
+   // In components/ModelSelector.tsx
+   const models = [
+     { id: 'grok-3-mini', name: 'Grok-3-Mini Beta' },
+     { id: 'gemini-2-flask', name: 'Gemini 2.0 Flash' },
+     { id: 'new-model-id', name: 'New Model Display Name' },
+   ];
+   ```
+
+## Reporting Bugs
+
+When reporting bugs:
+
+1. **Use the issue tracker**
+2. **Describe the bug** in detail
+3. **Provide reproduction steps**
+4. **Include relevant information**:
+   - Browser and OS
+   - Error messages
+   - Screenshots if applicable
+   - Code snippets if relevant
+
+## Feature Requests
+
+When suggesting features:
+
+1. **Check existing issues** to avoid duplicates
+2. **Describe the feature** in detail
+3. **Explain the use case** and benefits
+4. **Consider implementation details** if possible
+
+## Documentation Contributions
+
+Documentation improvements are always welcome:
+
+1. **Identify areas** that need better documentation
+2. **Make your changes** to the appropriate markdown files in the `docs/` directory
+3. **Create a pull request** with your changes
+
+## Review Process
+
+All submissions will be reviewed by project maintainers. The review process includes:
+
+1. **Code review**: Code quality, style, and correctness
+2. **Documentation review**: Clarity and completeness
+3. **Testing**: Verification that changes work as expected
+4. **Integration**: Ensuring changes fit with the overall project
+
+## License
+
+By contributing to this project, you agree that your contributions will be licensed under the project's license (typically MIT).
+
+## Questions and Support
+
+If you have questions or need help:
+
+1. **Check existing issues** for similar questions
+2. **Create a new issue** with the "question" label
+3. **Be clear and specific** about what you're trying to accomplish
+
+Thank you for contributing to the STEM AI Assistant project! Your help makes this project better for everyone. 
+
+
+================================================
+File: docs/database-schema.md
+================================================
+# Database Schema
+
+This document outlines the database schema used in the STEM AI Assistant application for storing documents and embeddings.
+
+## Overview
+
+The STEM AI Assistant uses a PostgreSQL database with the pgvector extension to store and query documents and their vector embeddings. The database enables the retrieval-augmented generation (RAG) capabilities of the application.
+
+## Tables
+
+The database has two main tables:
+
+1. **documents**: Stores the original document metadata and content
+2. **chunks**: Stores chunks of text from documents along with their embeddings
+
+### Documents Table
+
+The `documents` table stores the metadata and content of uploaded documents.
+
+**Schema**:
+
+```sql
+CREATE TABLE documents (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
+
+**Fields**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | SERIAL | Primary key, auto-incrementing identifier |
+| `title` | VARCHAR(255) | Document title (typically the filename) |
+| `content` | TEXT | Full text content of the document |
+| `created_at` | TIMESTAMP | When the document was added |
+| `updated_at` | TIMESTAMP | When the document was last updated |
+
+### Chunks Table
+
+The `chunks` table stores smaller chunks of text extracted from documents, along with their vector embeddings for semantic search.
+
+**Schema**:
+
+```sql
+CREATE TABLE chunks (
+  id SERIAL PRIMARY KEY,
+  document_id SERIAL REFERENCES documents(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  embedding VECTOR(1536),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
+
+**Fields**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | SERIAL | Primary key, auto-incrementing identifier |
+| `document_id` | SERIAL | Foreign key reference to the documents table |
+| `content` | TEXT | Text content of this specific chunk |
+| `embedding` | VECTOR(1536) | Vector embedding of the chunk content (1536 dimensions) |
+| `created_at` | TIMESTAMP | When the chunk was added |
+| `updated_at` | TIMESTAMP | When the chunk was last updated |
+
+## Relationships
+
+- Each document can have multiple chunks (one-to-many relationship)
+- When a document is deleted, all its chunks are also deleted (CASCADE delete)
+
+## Embedding Vector Details
+
+The application uses OpenAI's `text-embedding-3-small` model for generating embeddings, which produces 1536-dimensional vectors. These vectors are stored in the `embedding` column of the `chunks` table.
+
+The pgvector extension provides specialized operators for vector similarity search:
+
+- `<=>`: Cosine distance operator 
+- `<->`: Euclidean distance operator
+- `<#>`: Negative inner product operator
+
+The application uses cosine distance (`<=>`) for semantic similarity searches, where lower values indicate higher similarity.
+
+## Example Queries
+
+### Inserting a Document
+
+```sql
+INSERT INTO documents (title, content)
+VALUES ('Introduction to Quantum Physics', 'Quantum physics is the study of matter and energy at its most fundamental level...')
+RETURNING id;
+```
+
+### Inserting a Chunk with Embedding
+
+```sql
+INSERT INTO chunks (document_id, content, embedding)
+VALUES (
+  1, 
+  'Quantum physics is the study of matter and energy at its most fundamental level',
+  '[0.123, 0.456, 0.789, ...]'::vector
+);
+```
+
+### Semantic Search Query
+
+```sql
+SELECT 
+  chunks.id,
+  chunks.content,
+  chunks.document_id,
+  documents.title,
+  1 - (chunks.embedding <=> '[0.234, 0.567, 0.890, ...]'::vector) AS similarity
+FROM chunks
+JOIN documents ON chunks.document_id = documents.id
+ORDER BY similarity DESC
+LIMIT 5;
+```
+
+## Database Configuration
+
+The database connection is configured in `lib/db/index.ts` using the Neon serverless Postgres client and Drizzle ORM:
+
+```typescript
+import { neon, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import * as schema from './schema';
+
+neonConfig.fetchOptions = {
+  cache: 'no-store',
+};
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not set');
+}
+
+const sql = neon(process.env.DATABASE_URL);
+export const db = drizzle(sql, { schema });
+```
+
+The schema is defined in `lib/db/schema.ts` using Drizzle ORM's schema definition:
+
+```typescript
+import { pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { pgvector } from 'pgvector/drizzle-orm';
+
+export const documents = pgTable('documents', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 255 }).notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const chunks = pgTable('chunks', {
+  id: serial('id').primaryKey(),
+  documentId: serial('document_id').references(() => documents.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  embedding: pgvector.vector('embedding', { dimensions: 1536 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+```
+
+## Database Operations in the Application
+
+### Adding Documents
+
+When a user uploads a document, the application:
+
+1. Inserts the document metadata into the `documents` table
+2. Splits the document content into manageable chunks
+3. Generates embeddings for each chunk using the OpenAI embedding model
+4. Inserts each chunk and its embedding into the `chunks` table
+
+This is implemented in the `addDocument` function in `lib/ai/documents.ts`.
+
+### Searching Documents
+
+When a user sends a message, the application:
+
+1. Takes the user's query and generates an embedding for it
+2. Performs a vector similarity search to find the most relevant chunks
+3. Retrieves the top N most similar chunks
+4. Includes these chunks as context for the AI response
+
+This is implemented in the `searchDocuments` function in `lib/ai/documents.ts`.
+
+## Performance Considerations
+
+### Indexing
+
+For production deployments with large document collections, consider adding indexes to improve search performance:
+
+```sql
+CREATE INDEX ON chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+### Chunking Strategy
+
+The current implementation uses a simple sentence-based chunking strategy with a maximum chunk size of 512 characters. This balance ensures:
+
+1. Chunks are small enough for efficient embedding and retrieval
+2. Chunks contain enough context to be meaningful
+3. Related information stays together
+
+For more advanced applications, consider implementing:
+- Overlapping chunks to prevent information loss at boundaries
+- Hierarchical chunking for multi-level retrieval
+- Semantic-aware chunking that keeps related concepts together
+
+## Database Scaling
+
+The current schema is designed for small to medium-sized document collections. For larger collections, consider:
+
+1. **Partitioning**: Partition the chunks table by document_id
+2. **Approximate Nearest Neighbor**: Use approximate search algorithms for faster retrieval
+3. **Caching**: Cache frequently accessed embeddings and search results
+4. **Document Filtering**: Add metadata to enable pre-filtering before vector search 
+
+
+================================================
+File: docs/deployment.md
+================================================
+# Deployment Guide
+
+This guide provides instructions for deploying the STEM AI Assistant to production environments.
+
+## Prerequisites
+
+Before deploying, ensure you have:
+
+1. A complete and tested version of the STEM AI Assistant
+2. API keys for all required services:
+   - OpenAI API key
+   - xAI API key (for Grok models)
+   - Google AI API key (for Gemini models)
+3. A PostgreSQL database with pgvector extension installed
+4. A Vercel account (recommended deployment platform)
+5. Git repository with your code
+
+## Deployment Options
+
+The STEM AI Assistant can be deployed using several approaches:
+
+1. **Vercel** (Recommended): Easiest deployment option with built-in Next.js optimizations
+2. **Self-hosted**: Deploy on your own infrastructure
+3. **Docker**: Containerized deployment for custom hosting environments
+
+## Deploying to Vercel
+
+### 1. Prepare Your Project
+
+Ensure your project is ready for deployment:
+
+```bash
+# Install dependencies
+npm install
+
+# Build the project to check for errors
+npm run build
+```
+
+### 2. Set Up Environment Variables
+
+Create a `.env.production` file with your production environment variables:
+
+```env
+# OpenAI API Key (required)
+OPENAI_API_KEY=your_openai_api_key
+
+# Google API Key (for Gemini models)
+GOOGLE_API_KEY=your_google_api_key
+
+# xAI API Key (required for Grok models)
+XAI_API_KEY=your_xai_api_key
+
+# Database URL (required)
+DATABASE_URL=postgres://username:password@hostname:port/database
+```
+
+### 3. Set Up Version Control
+
+If not already done, initialize a Git repository and commit your code:
+
+```bash
+git init
+git add .
+git commit -m "Initial commit for deployment"
+```
+
+### 4. Deploy to Vercel
+
+#### Using Vercel CLI
+
+Install and use the Vercel CLI for deployment:
+
+```bash
+# Install Vercel CLI
+npm install -g vercel
+
+# Login to Vercel
+vercel login
+
+# Deploy
+vercel
+```
+
+Follow the prompts to deploy your application.
+
+#### Using Vercel Web Interface
+
+1. Push your code to a Git repository (GitHub, GitLab, or Bitbucket)
+2. Log in to your Vercel account
+3. Click "New Project"
+4. Import your repository
+5. Configure the project:
+   - Set the Framework Preset to "Next.js"
+   - Add all environment variables from your `.env.production` file
+   - Configure any other settings as needed
+6. Click "Deploy"
+
+### 5. Configure PostgreSQL with pgvector
+
+For production, you'll need a PostgreSQL database with pgvector installed:
+
+#### Option 1: Managed Database (Recommended)
+
+Use a managed PostgreSQL service with pgvector support:
+
+- [Neon](https://neon.tech/): Native pgvector support
+- [Supabase](https://supabase.com/): Includes pgvector
+- [AWS RDS for PostgreSQL](https://aws.amazon.com/rds/postgresql/) with pgvector extension
+
+After setting up your database:
+
+1. Create the required tables:
+   ```sql
+   CREATE EXTENSION vector;
+   
+   CREATE TABLE documents (
+     id SERIAL PRIMARY KEY,
+     title VARCHAR(255) NOT NULL,
+     content TEXT NOT NULL,
+     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+   );
+   
+   CREATE TABLE chunks (
+     id SERIAL PRIMARY KEY,
+     document_id SERIAL REFERENCES documents(id) ON DELETE CASCADE,
+     content TEXT NOT NULL,
+     embedding VECTOR(1536),
+     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+   );
+   ```
+
+2. Update the `DATABASE_URL` environment variable in your Vercel project
+
+#### Option 2: Self-Hosted Database
+
+If running your own PostgreSQL instance:
+
+1. Install the pgvector extension:
+   ```bash
+   # On Ubuntu/Debian
+   sudo apt-get install postgresql-13-pgvector
+   
+   # Using Docker
+   docker run -d \
+     --name postgres-pgvector \
+     -e POSTGRES_PASSWORD=postgres \
+     -p 5432:5432 \
+     pgvector/pgvector:pg13
+   ```
+
+2. Connect to your database and create the required tables (same as above)
+
+### 6. Test Your Deployment
+
+After deployment is complete:
+
+1. Visit your deployed application URL
+2. Test the chat functionality with different models
+3. Upload test documents to verify RAG functionality
+4. Check error handling and responsiveness
+
+## Deploying with Docker
+
+### 1. Create a Dockerfile
+
+Create a `Dockerfile` in your project root:
+
+```dockerfile
+FROM node:18-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+# Production image, copy all the files and run next
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+
+# Create a non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy built files
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+
+CMD ["node", "server.js"]
+```
+
+### 2. Create Docker Compose Configuration
+
+Create a `docker-compose.yml` file:
+
+```yaml
+version: '3'
+
+services:
+  stemaiapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+    restart: always
+    depends_on:
+      - postgres
+
+  postgres:
+    image: pgvector/pgvector:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=stemai
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: always
+
+volumes:
+  postgres-data:
+```
+
+### 3. Create Database Initialization Script
+
+Create an `init-db.sql` file:
+
+```sql
+CREATE EXTENSION vector;
+
+CREATE TABLE documents (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE chunks (
+  id SERIAL PRIMARY KEY,
+  document_id SERIAL REFERENCES documents(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  embedding VECTOR(1536),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
+
+### 4. Build and Run with Docker Compose
+
+```bash
+# Start the containers
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+## Self-Hosting on a VPS
+
+### 1. Set Up a Virtual Private Server
+
+Provision a VPS with:
+- Ubuntu 20.04 or newer
+- At least 2 GB RAM
+- 2 CPU cores minimum
+- 20+ GB SSD storage
+
+### 2. Install Required Software
+
+SSH into your server and install required software:
+
+```bash
+# Update package lists
+sudo apt update
+sudo apt upgrade -y
+
+# Install Node.js
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install PostgreSQL
+sudo apt-get install -y postgresql postgresql-contrib
+
+# Install pgvector
+git clone https://github.com/pgvector/pgvector.git
+cd pgvector
+make
+sudo make install
+
+# Install PM2 for process management
+sudo npm install -g pm2
+```
+
+### 3. Configure PostgreSQL with pgvector
+
+```bash
+# Connect to PostgreSQL
+sudo -u postgres psql
+
+# Create database and user
+CREATE DATABASE stemai;
+CREATE USER stemaiuser WITH ENCRYPTED PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE stemai TO stemaiuser;
+\c stemai
+
+# Enable pgvector extension
+CREATE EXTENSION vector;
+
+# Create required tables
+CREATE TABLE documents (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE chunks (
+  id SERIAL PRIMARY KEY,
+  document_id SERIAL REFERENCES documents(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  embedding VECTOR(1536),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
+
+### 4. Deploy the Application
+
+```bash
+# Clone your repository
+git clone https://github.com/yourusername/stemAI.git
+cd stemAI
+
+# Install dependencies
+npm install
+
+# Create .env.production file
+cat > .env.production << EOL
+OPENAI_API_KEY=your_openai_api_key
+GOOGLE_API_KEY=your_google_api_key
+XAI_API_KEY=your_xai_api_key
+DATABASE_URL=postgres://stemaiuser:your_password@localhost:5432/stemai
+EOL
+
+# Build the application
+npm run build
+
+# Start with PM2
+pm2 start npm --name "stemai" -- start
+pm2 save
+pm2 startup
+```
+
+### 5. Set Up Nginx as a Reverse Proxy
+
+```bash
+# Install Nginx
+sudo apt-get install -y nginx
+
+# Configure Nginx
+sudo nano /etc/nginx/sites-available/stemai
+
+# Add the following configuration
+server {
+    listen 80;
+    server_name your_domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+# Enable the site
+sudo ln -s /etc/nginx/sites-available/stemai /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+# Set up SSL with Let's Encrypt
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d your_domain.com
+```
+
+## Production Considerations
+
+### Scaling
+
+For high-traffic deployments:
+
+1. **Database Scaling**:
+   - Implement connection pooling
+   - Consider read replicas for heavy read operations
+   - Add indexes for frequently queried fields
+
+2. **Application Scaling**:
+   - Use Vercel's automatic scaling
+   - For self-hosted, consider Kubernetes for container orchestration
+
+### Monitoring
+
+Set up monitoring for your production deployment:
+
+1. **Application Monitoring**:
+   - [Vercel Analytics](https://vercel.com/analytics) for Vercel deployments
+   - [Datadog](https://www.datadoghq.com/) or [New Relic](https://newrelic.com/) for comprehensive monitoring
+   - [Sentry](https://sentry.io/) for error tracking
+
+2. **Database Monitoring**:
+   - [pganalyze](https://pganalyze.com/) for PostgreSQL monitoring
+   - Set up alerts for high database load
+
+### Backup Strategy
+
+Implement a robust backup strategy:
+
+1. **Database Backups**:
+   - Daily automated backups
+   - Point-in-time recovery capability
+   - Test restoration procedures regularly
+
+2. **Application Backups**:
+   - Version control for code
+   - Environment variable backup
+   - Document all configuration settings
+
+### Security
+
+Enhance security for production:
+
+1. **API Security**:
+   - Implement rate limiting
+   - Add authentication and authorization
+   - Use HTTPS for all connections
+
+2. **Database Security**:
+   - Use TLS for database connections
+   - Implement least privilege access
+   - Regular security audits
+
+3. **Environment Variables**:
+   - Use Vercel's environment variable encryption
+   - Rotate API keys periodically
+   - Use secret management services for self-hosted deployments
+
+## Troubleshooting Common Deployment Issues
+
+### Connection Issues with Database
+
+1. Check firewall settings allowing connections to PostgreSQL
+2. Verify the DATABASE_URL format and credentials
+3. Test direct connection to the database
+
+### API Key Issues
+
+1. Verify all API keys are correctly set in environment variables
+2. Check for any restrictions or quotas on your API keys
+3. Ensure API keys have the necessary permissions
+
+### Performance Issues
+
+1. Monitor memory usage and increase if needed
+2. Check for slow database queries
+3. Consider adding caching for frequently accessed data
+
+## Continuous Deployment
+
+Set up a CI/CD pipeline for automated deployments:
+
+1. **GitHub Actions**:
+   ```yaml
+   name: Deploy to Production
+   
+   on:
+     push:
+       branches: [ main ]
+   
+   jobs:
+     deploy:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v2
+         
+         - name: Setup Node.js
+           uses: actions/setup-node@v2
+           with:
+             node-version: '18'
+             
+         - name: Install Dependencies
+           run: npm ci
+           
+         - name: Build
+           run: npm run build
+           
+         - name: Deploy to Vercel
+           uses: amondnet/vercel-action@v20
+           with:
+             vercel-token: ${{ secrets.VERCEL_TOKEN }}
+             vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+             vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+             vercel-args: '--prod'
+   ```
+
+2. **Vercel Git Integration**:
+   - Connect your repository to Vercel
+   - Configure automatic deployments on push to main 
+
+
+================================================
+File: docs/getting-started.md
+================================================
+# Getting Started with STEM AI Assistant
+
+This guide will walk you through the process of setting up and running the STEM AI Assistant on your local machine.
+
+## Prerequisites
+
+Before starting, ensure you have the following installed:
+
+- **Node.js**: Version 18.0.0 or higher
+- **npm** or **pnpm**: For package management
+- **PostgreSQL**: With pgvector extension installed for vector embeddings
+
+## API Keys
+
+You'll need to obtain the following API keys:
+
+1. **OpenAI API Key**: Required for embeddings and fallback model
+   - Sign up at [OpenAI](https://platform.openai.com/)
+   - Create an API key in your dashboard
+
+2. **xAI API Key**: Required for Grok-3-mini model
+   - Sign up for xAI access
+   - Generate API key from the developer portal
+
+3. **Google API Key**: Required for Gemini 2.0 Flash model
+   - Sign up for Google AI Studio
+   - Create an API key for Gemini models
+
+## Database Setup
+
+1. **Create a PostgreSQL database**:
+   ```sql
+   CREATE DATABASE stemaidb;
+   ```
+
+2. **Install pgvector extension**:
+   ```sql
+   CREATE EXTENSION vector;
+   ```
+
+3. **Create the required tables** (optional - the app will handle this with Drizzle migrations):
+   ```sql
+   CREATE TABLE documents (
+     id SERIAL PRIMARY KEY,
+     title VARCHAR(255) NOT NULL,
+     content TEXT NOT NULL,
+     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+   );
+
+   CREATE TABLE chunks (
+     id SERIAL PRIMARY KEY,
+     document_id SERIAL REFERENCES documents(id) ON DELETE CASCADE,
+     content TEXT NOT NULL,
+     embedding VECTOR(1536),
+     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+   );
+   ```
+
+## Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/stemAI.git
+   cd stemAI
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   # or
+   pnpm install
+   ```
+
+3. **Environment Setup**:
+   
+   Create a `.env.local` file in the root directory with the following content:
+   ```env
+   # OpenAI API Key (required)
+   OPENAI_API_KEY=your_openai_api_key
+
+   # Google API Key (for Gemini models)
+   GOOGLE_API_KEY=your_google_api_key
+
+   # xAI API Key (required for Grok models)
+   XAI_API_KEY=your_xai_api_key
+
+   # Database URL (required)
+   DATABASE_URL=postgres://username:password@localhost:5432/stemaidb
+   ```
+
+## Running the Application
+
+1. **Development Mode**:
+   ```bash
+   npm run dev
+   # or
+   pnpm dev
+   ```
+   The application will be available at `http://localhost:3000`
+
+2. **Production Build**:
+   ```bash
+   npm run build
+   npm start
+   # or
+   pnpm build
+   pnpm start
+   ```
+
+## Using the Application
+
+1. **Home Page**: 
+   - Navigate to `http://localhost:3000`
+   - Click on "Start Chatting" to go to the chat interface
+
+2. **Chat Interface**:
+   - Select your preferred AI model from the dropdown
+   - Type your STEM-related questions in the input field
+   - Upload relevant documents using the file uploader
+   - View the AI's responses in real-time
+
+## Troubleshooting
+
+If you encounter any issues during setup:
+
+1. **Database Connection Issues**:
+   - Verify your DATABASE_URL is correct
+   - Ensure PostgreSQL is running
+   - Check that the pgvector extension is installed
+
+2. **API Key Issues**:
+   - Ensure your API keys are valid and not expired
+   - Check for any quotes or spaces in your .env.local file
+
+3. **Application Errors**:
+   - Check the console for specific error messages
+   - Ensure all dependencies are installed correctly
+
+## Next Steps
+
+Once you have the application running, proceed to:
+
+- **Uploading Documents**: Add your own STEM-related documents for RAG functionality
+- **Customizing**: Modify the system prompts in `app/api/chat/route.ts` for specialized behavior
+- **Exploring**: Try different AI models to see their unique capabilities
+
+For a deeper understanding of the application architecture, proceed to the [Architecture](./architecture.md) section. 
+
+
+================================================
+File: docs/introduction.md
+================================================
+# Introduction to STEM AI Assistant
+
+## Overview
+
+STEM AI Assistant is a sophisticated chatbot application designed specifically for science, technology, engineering, and mathematics (STEM) education and research. It combines the power of large language models (LLMs) with Retrieval-Augmented Generation (RAG) capabilities to provide accurate, contextual responses to STEM-related queries.
+
+## Purpose
+
+The primary purpose of the STEM AI Assistant is to:
+
+1. **Enhance STEM Learning**: Provide accessible, accurate explanations for complex STEM concepts
+2. **Support Research**: Help researchers quickly find relevant information from their documents
+3. **Improve Accessibility**: Make STEM knowledge more available to students, educators, and professionals
+4. **Provide Customization**: Allow users to choose different AI models to suit their specific needs
+
+## Key Differentiators
+
+What sets the STEM AI Assistant apart:
+
+- **STEM-Focused**: Unlike general-purpose chatbots, this assistant is specifically optimized for STEM subjects
+- **Multiple AI Models**: Support for different LLMs (Grok-3-mini and Gemini 2.0 Flash) provides flexibility and varied capabilities
+- **Document Integration**: Users can upload their own documents, which the assistant can reference in its responses
+- **Semantic Search**: Advanced embedding-based search helps find the most relevant information
+- **Modern User Experience**: Real-time streaming responses, dark mode support, and responsive design
+
+## Technology Stack
+
+The STEM AI Assistant is built using a modern technology stack:
+
+- **Frontend**: Next.js 15, React 19, and Tailwind CSS
+- **Backend**: Next.js API routes with server-side functions
+- **AI Integration**: Vercel AI SDK for simplified LLM interactions
+- **Database**: PostgreSQL with pgvector for vector similarity search
+- **Hosting**: Optimized for deployment on Vercel
+
+## Target Audience
+
+The STEM AI Assistant is designed for:
+
+- Students at all levels seeking help with STEM subjects
+- Educators looking for teaching assistance
+- Researchers who need to quickly query their research materials
+- Professionals in STEM fields seeking quick reference
+
+In the following sections, we'll explore how to set up, configure, and use the STEM AI Assistant in various contexts. 
+
+
+================================================
+File: docs/ui-generation.md
+================================================
+# UI Generation with STEM AI
+
+This document provides an overview of the UI Generation feature in the STEM AI Assistant, which allows you to create React components using natural language prompts.
+
+## Overview
+
+The UI Generation feature is inspired by interfaces like v0.dev and database.build, providing a collaborative environment where you can:
+
+1. Describe the UI components you want to create in natural language
+2. See the generated React component code in real-time
+3. Preview the rendered component
+4. Copy the code for use in your own projects
+
+## Getting Started
+
+To use the UI Generation feature:
+
+1. Navigate to the `/generate` page from the home screen
+2. Choose an AI model using the selector in the top navigation bar
+3. Describe the component you want to create in the chat input
+4. Wait for the AI to generate the component code
+5. View and interact with the generated component in the preview pane
+
+## Example Prompts
+
+Here are some example prompts you can use to generate UI components:
+
+### Basic Components
+
+- "Create a simple login form with email and password fields"
+- "Generate a responsive navigation bar with a logo, links, and mobile menu"
+- "Make a pricing table with three tiers: basic, pro, and enterprise"
+
+### STEM-Specific Components
+
+- "Create a scientific calculator with basic arithmetic and scientific functions"
+- "Design a periodic table element card that shows element details on hover"
+- "Make a graph component that can plot mathematical functions"
+
+### Interactive Components
+
+- "Build a quiz component with multiple-choice questions and automatic scoring"
+- "Create a step-by-step tutorial component for a science experiment"
+- "Design an interactive physics simulation for demonstrating Newton's laws"
+
+## Tips for Best Results
+
+1. **Be Specific**: The more details you provide, the better the generated component will match your needs.
+
+2. **Start Simple**: Begin with basic components and iterate with more complexity.
+
+3. **Use Technical Terms**: Feel free to specify technical requirements like "using Flexbox" or "with React state management."
+
+4. **Iterate**: If the first generation doesn't meet your needs, refine your prompt and try again.
+
+## Technical Details
+
+The UI Generation feature uses:
+
+- **AI SDK UI**: For managing the chat interface and streaming responses
+- **Split-Pane Layout**: Provides a resizable interface for chat and code preview
+- **Tools API**: Enables the AI to generate structured component data
+- **React and Tailwind CSS**: For building and styling the generated components
+
+## Limitations
+
+The current implementation has some limitations:
+
+1. **Static Preview**: The preview is static HTML/CSS and not a fully functional React component
+2. **Limited Interactivity**: Complex interactive behaviors may not be fully implemented
+3. **No File Export**: Currently, you can only copy the generated code
+4. **No Image Generation**: The component cannot include generated images
+
+## Future Enhancements
+
+We plan to add the following features in future updates:
+
+1. Export generated components as files
+2. Save collections of generated components
+3. Edit generated components directly in the interface
+4. Add sharing capabilities for created components
+5. Support for more component libraries beyond Tailwind
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. **Component doesn't generate**: Try simplifying your prompt or switching models
+2. **Code errors in preview**: Check the console for errors and refine your prompt
+3. **UI freezes**: Use the "Stop generating" button if a generation takes too long 
+
+
+================================================
+File: lib/ai/documents.ts
+================================================
+import { db, documents, chunks } from '../db';
+import { generateEmbeddings } from './embedding';
+
+// Add a document and its embeddings to the database
+export async function addDocument(title: string, content: string) {
+  // First, insert the document
+  const [document] = await db
+    .insert(documents)
+    .values({
+      title,
+      content,
+    })
+    .returning({ id: documents.id });
+
+  // Generate embeddings for the document
+  const embeddedChunks = await generateEmbeddings(content);
+
+  // Insert the chunks with their embeddings
+  for (const chunk of embeddedChunks) {
+    await db.insert(chunks).values({
+      documentId: document.id,
+      content: chunk.content,
+      embedding: chunk.embedding,
+    });
+  }
+
+  return document.id;
+}
+
+// Search for relevant document chunks based on a query
+export async function searchDocuments(query: string, limit = 5) {
+  // Generate embedding for the query
+  const [queryEmbedding] = await generateEmbeddings(query);
+  
+  // Search for the most similar chunks
+  const result = await db.execute(`
+    SELECT 
+      chunks.id,
+      chunks.content,
+      chunks.document_id,
+      documents.title,
+      1 - (chunks.embedding <=> '${JSON.stringify(queryEmbedding.embedding)}') AS similarity
+    FROM chunks
+    JOIN documents ON chunks.document_id = documents.id
+    ORDER BY similarity DESC
+    LIMIT ${limit}
+  `);
+  
+  // Convert the result to a usable array
+  const rows = result.rows as Array<{
+    id: number;
+    content: string;
+    document_id: number;
+    title: string;
+    similarity: number;
+  }>;
+  
+  return rows;
+} 
+
+
+================================================
+File: lib/ai/embedding.ts
+================================================
+import { embedMany } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+const embeddingModel = openai.embedding('text-embedding-3-small');
+
+// Split text into smaller chunks for embedding
+const generateChunks = (input: string, maxChunkSize = 512): string[] => {
+  const sentences = input
+    .replace(/([.?!])\s+/g, '$1\n')
+    .split('\n')
+    .filter(sentence => sentence.trim() !== '');
+  
+  const chunks: string[] = [];
+  let currentChunk = '';
+  
+  for (const sentence of sentences) {
+    // If adding this sentence would exceed max chunk size, save current chunk and start a new one
+    if (currentChunk.length + sentence.length > maxChunkSize && currentChunk.length > 0) {
+      chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    } else {
+      currentChunk += (currentChunk.length > 0 ? ' ' : '') + sentence;
+    }
+  }
+  
+  // Add the last chunk if it's not empty
+  if (currentChunk.trim().length > 0) {
+    chunks.push(currentChunk.trim());
+  }
+  
+  return chunks;
+};
+
+export async function generateEmbeddings(
+  content: string
+): Promise<Array<{ embedding: number[]; content: string }>> {
+  const chunks = generateChunks(content);
+  const { embeddings } = await embedMany({
+    model: embeddingModel,
+    values: chunks,
+  });
+  
+  return chunks.map((chunk, index) => ({
+    content: chunk,
+    embedding: embeddings[index],
+  }));
+} 
+
+
+================================================
+File: lib/db/index.ts
+================================================
+import { neon, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import * as schema from './schema';
+
+neonConfig.fetchOptions = {
+  cache: 'no-store',
+};
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not set');
+}
+
+const sql = neon(process.env.DATABASE_URL);
+export const db = drizzle(sql, { schema });
+
+export * from './schema'; 
+
+
+================================================
+File: lib/db/schema.ts
+================================================
+import { pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { vector } from 'drizzle-orm/pg-core';
+
+export const documents = pgTable('documents', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 255 }).notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const chunks = pgTable('chunks', {
+  id: serial('id').primaryKey(),
+  documentId: serial('document_id').references(() => documents.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  embedding: vector('embedding', { dimensions: 1536 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}); 
+
