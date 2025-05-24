@@ -115,42 +115,78 @@ export default function ChatPage() {
       toast.error('No file selected for upload.');
       return;
     }
-    const file = files[0];
 
     setIsUploading(true);
-    toast.info(`Uploading ${file.name}...`);
-    track('FileUploadStarted', { fileName: file.name, fileSize: file.size });
 
-    const formData = new FormData();
-    formData.append('file', file);
+    // Process multiple files
+    const processFiles = async () => {
+      for (const file of files) {
+        const isImage = file.type.startsWith('image/');
+        const endpoint = isImage ? '/api/ocr' : '/api/documents';
+        
+        try {
+          console.log(`[ChatPage] Processing ${isImage ? 'image' : 'document'}: ${file.name}`);
+          toast.info(`Processing ${file.name}...`);
+          track('FileUploadStarted', { fileName: file.name, fileSize: file.size, fileType: isImage ? 'image' : 'document' });
 
-    fetch('/api/documents', {
-      method: 'POST',
-      body: formData,
-    })
-    .then(async response => {
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to upload file: ${response.statusText}`);
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to process file: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+
+          if (isImage) {
+            // Handle OCR result
+            const ocrMessage = `📸 **OCR Results from "${file.name}":**
+
+${result.extractedText}${result.hasFormulas ? '\n\n*✨ Mathematical formulas detected and formatted in LaTeX*' : ''}
+
+${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.originalSize} → ${result.optimizedSize}*` : ''}`;
+
+            append({
+              id: uuidv4(),
+              role: 'assistant',
+              content: ocrMessage,
+              parts: [{ type: 'text', text: ocrMessage }]
+            });
+
+            toast.success(`OCR completed for ${file.name}! ${result.extractedText.length} characters extracted.`);
+            track('OCRSucceeded', { 
+              fileName: file.name, 
+              textLength: result.extractedText.length,
+              hasFormulas: result.hasFormulas,
+              processingTime: result.processingTime 
+            });
+          } else {
+            // Handle document upload result
+            toast.success(`${file.name} uploaded successfully! You can now ask questions about it.`);
+            append({
+              id: uuidv4(),
+              role: 'user',
+              content: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`,
+              parts: [{type: 'text', text: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`}]
+            });
+            track('FileUploadSucceeded', { fileName: file.name, documentId: result.documentId });
+          }
+
+        } catch (error: any) {
+          console.error(`File processing error for ${file.name}:`, error);
+          toast.error(`Processing failed for ${file.name}: ${error.message}`);
+          track('FileProcessingFailed', { fileName: file.name, error: error.message, fileType: isImage ? 'image' : 'document' });
+        }
       }
-      return response.json();
-    })
-    .then(result => {
-      toast.success(`${file.name} uploaded successfully! You can now ask questions about it.`);
-      append({
-        id: uuidv4(),
-        role: 'user',
-        content: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`,
-        parts: [{type: 'text', text: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`}]
-      });
-      track('FileUploadSucceeded', { fileName: file.name, documentId: result.documentId });
-    })
-    .catch((error: any) => {
-      console.error('File upload error:', error);
-      toast.error(`Upload failed: ${error.message}`);
-      track('FileUploadFailed', { fileName: file.name, error: error.message });
-    })
-    .finally(() => {
+    };
+
+    processFiles().finally(() => {
       setIsUploading(false);
     });
   }, [append, setIsUploading]);

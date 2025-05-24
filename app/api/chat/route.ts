@@ -2,10 +2,10 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { google } from '@ai-sdk/google';
 import { openai } from '@ai-sdk/openai';
 import { xai } from '@ai-sdk/xai';
-import { streamText, CoreMessage, StreamData } from 'ai';
+import { streamText, CoreMessage } from 'ai';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { searchDocuments } from '../../../lib/ai/documents';
+import { searchDocumentsOptimized, detectSimpleQuery } from '../../../lib/ai/optimized-documents';
 import { visualizationTools } from './visualization_tools';
 
 // Allow streaming responses up to 60 seconds
@@ -19,6 +19,51 @@ function getModelConfig(modelId: string, mode: string = 'chat') {
     baseSystem = `You are an expert React developer who excels at creating clean, accessible, and responsive UI components. You're helping a user create React components based on their prompts. Always generate the most minimal, clean React code that fulfills the requirements. Use TypeScript type annotations when appropriate. Always use modern React patterns (e.g., functional components, hooks). Format the JSX beautifully.\r\n\r\nWhen generating code, invoke the 'generateReactComponent' tool to provide the complete, ready-to-use component. Each component should be:\r\n1. Complete and self-contained\r\n2. Well-typed with TypeScript\r\n3. Using modern React patterns\r\n4. Following best practices for accessibility and responsiveness`;
   } else { // 'chat' mode
     baseSystem = `You are a helpful STEM assistant. Focus on providing accurate, educational information about science, technology, engineering, and mathematics. Explain concepts clearly and provide examples where appropriate. If you're unsure about something, acknowledge the limits of your knowledge instead of making up information.
+
+## CRITICAL: MATHEMATICAL FORMATTING REQUIREMENTS
+
+**MANDATORY**: ALL mathematical expressions MUST use dollar sign delimiters - NEVER use parentheses or brackets!
+
+WRONG: (f(x)), (\\frac{dy}{dx}), [ \\frac{dy}{dx} = f'(x) ]
+CORRECT: $f(x)$, $\\frac{dy}{dx}$, $$\\frac{dy}{dx} = f'(x)$$
+
+**INLINE MATH**: Use single dollar signs for math within sentences:
+- Variables: Use $x$, $y$, $f(x)$, $g(x)$
+- Simple expressions: Use $E = mc^2$, $F = ma$, $\\frac{dy}{dx}$
+- Constants: Use $\\pi$, $e$, $\\alpha$, $\\beta$
+
+**BLOCK MATH**: Use double dollar signs for standalone equations:
+- Important formulas: Use $$\\frac{dy}{dx} = f'(g(x)) \\cdot g'(x)$$
+- Complex expressions: Use $$\\int_a^b f(x) dx = F(b) - F(a)$$
+
+**EXAMPLES OF CORRECT FORMATTING**:
+The chain rule formula is $\\frac{dy}{dx} = \\frac{df}{dg} \\cdot \\frac{dg}{dx}$.
+For a composite function $h(x) = f(g(x))$, we have: $$h'(x) = f'(g(x)) \\cdot g'(x)$$
+Where $f'(g(x))$ is the derivative of the outer function and $g'(x)$ is the derivative of the inner function.
+
+## TEXT FORMATTING GUIDELINES
+
+### Mathematical Elements (Remember: Always use $ delimiters!)
+- Fractions: $\frac{numerator}{denominator}$
+- Square roots: $\sqrt{x}$, $\sqrt[n]{x}$
+- Subscripts/superscripts: $x_1^2$, $H_2O$
+- Integrals: $\int_a^b f(x) dx$
+- Derivatives: $\frac{d}{dx}$, $\frac{\partial f}{\partial x}$
+- Greek letters: $\alpha$, $\beta$, $\gamma$, $\Delta$, $\Omega$
+- Functions: $\sin(x)$, $\cos(x)$, $\log(x)$, $\ln(x)$
+- Chemistry: $\text{H}_2\text{SO}_4$, $\text{CaCO}_3$
+
+### Content Structure
+- Use clear headers (# ## ###) for organization
+- Format lists with proper bullets or numbers
+- Use code blocks with language specification
+- Include tables when comparing data
+- Use **bold** for key terms, *italics* for emphasis
+- Define all mathematical variables when introduced
+- Include units for physical quantities
+- Break complex derivations into clear steps
+
+**REMINDER**: Every single mathematical expression, variable, or formula MUST be wrapped in dollar signs!
 
 When a user asks about molecules, chemical structures, or wants to see a 3D molecular visualization, you MUST call the 'displayMolecule3D' tool. Do NOT generate text tokens like [NEEDS_VISUALIZATION]. Instead, directly call the tool.
 
@@ -123,7 +168,10 @@ IMPORTANT:
 - Always use the actual tool calls, never generate text tokens or placeholders
 - Call each tool only ONCE per response - do not repeat tool calls
 - After calling a tool, provide a brief explanation of what was displayed
-- For physics, always explain the educational concept being demonstrated`;
+- For physics, always explain the educational concept being demonstrated
+- CRITICAL: Use ONLY dollar signs for mathematical expressions - NEVER parentheses or brackets!
+- Structure responses with clear headers, proper markdown formatting, and logical flow
+- Use appropriate emphasis, lists, and code blocks to enhance readability`;
   }
 
   switch (modelId) {
@@ -187,13 +235,20 @@ export async function POST(req: NextRequest) {
   let context = '';
   if (process.env.RAG_ENABLED === 'true' && lastUserMessage && typeof lastUserMessage.content === 'string') {
     try {
-      console.log('RAG is enabled, searching documents for:', lastUserMessage.content.substring(0, 50) + '...');
-      const relevantDocs = await searchDocuments(lastUserMessage.content, 3);
-      if (relevantDocs && relevantDocs.length > 0) {
-        context = `Here is some relevant information that may help answer the question:\n\n` +
-          relevantDocs.map((doc) => {
-            return `Document: \"${doc.title}\"\nContent: ${doc.content}\n`;
-          }).join('\n');
+      // Fast path for simple queries (no RAG needed)
+      const isSimpleQuery = detectSimpleQuery(lastUserMessage.content);
+      
+      if (!isSimpleQuery) {
+        console.log('RAG is enabled, searching documents for:', lastUserMessage.content.substring(0, 50) + '...');
+        const relevantDocs = await searchDocumentsOptimized(lastUserMessage.content, 3);
+        if (relevantDocs && relevantDocs.length > 0) {
+          context = `Here is some relevant information that may help answer the question:\n\n` +
+            relevantDocs.map((doc) => {
+              return `Document: \"${doc.title}\"\nContent: ${doc.content}\n`;
+            }).join('\n');
+        }
+      } else {
+        console.log('Simple query detected - skipping RAG for:', lastUserMessage.content.substring(0, 50) + '...');
       }
     } catch (error) {
       console.error('Error searching documents (RAG enabled):', error);
@@ -207,8 +262,6 @@ export async function POST(req: NextRequest) {
   const systemPromptWithContext = context 
     ? `${modelConfig.system}\n\n${context}`
     : modelConfig.system;
-
-  const streamData = new StreamData();
 
   console.log('[Chat API] ===== NEW REQUEST =====');
   console.log('[Chat API] Model:', modelId, 'Mode:', mode);
@@ -249,12 +302,10 @@ export async function POST(req: NextRequest) {
           console.log('[onFinish] Tool Results:', JSON.stringify(toolResults, null, 2));
         }
         console.log('[onFinish] Available Tools:', Object.keys(visualizationTools));
-        streamData.close();
       }
     });
 
     return result.toDataStreamResponse({ 
-      data: streamData, 
       getErrorMessage: errorHandler 
     });
 

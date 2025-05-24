@@ -1,3 +1,5 @@
+@import 'katex/dist/katex.min.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -108,4 +110,43 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-600;
 } 
+
+/* Math styling */
+.katex-display {
+  margin: 1em 0;
+  text-align: center;
+}
+
+.katex {
+  font-size: 1.1em;
+}
+
+/* Enhanced prose styling for markdown */
+.prose .katex-display {
+  margin: 1.5em auto;
+}
+
+.prose code {
+  @apply bg-gray-200 dark:bg-gray-800 px-1 py-0.5 rounded text-sm;
+}
+
+.prose pre {
+  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-blue-500 pl-4 italic;
+}
+
+.prose table {
+  @apply border-collapse border border-gray-300 dark:border-gray-600;
+}
+
+.prose th, .prose td {
+  @apply border border-gray-300 dark:border-gray-600 px-3 py-2;
+}
+
+.prose th {
+  @apply bg-gray-100 dark:bg-gray-800 font-semibold;
+}
 

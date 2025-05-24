@@ -5,9 +5,16 @@ import PendingVisualizationCard from './visualizations/PendingVisualizationCard'
 import Simple3DMolViewer from './visualizations/Simple3DMolViewer';
 import Advanced3DMolViewer from './visualizations/Advanced3DMolViewer';
 import MatterSimulator from './visualizations/MatterSimulator';
+import OCRResult from './OCRResult';
 // import PlotlyPlotter from './visualizations/PlotlyPlotter'; // Keep if other tools are added soon
 import VisualizationErrorBoundary from './visualizations/VisualizationErrorBoundary';
 import CodePreview from './CodePreview';
+
+// Dynamic import for MarkdownRenderer to optimize performance
+const MarkdownRenderer = dynamic(() => import('./MarkdownRenderer'), {
+  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-20 rounded"></div>,
+  ssr: false
+});
 
 const PlotlyPlotter = dynamic(() => import('./visualizations/PlotlyPlotter'), {
   ssr: false,
@@ -25,13 +32,20 @@ interface ChatMessagesProps {
   // pendingVisualizations prop is removed
 }
 
-// Helper to clean up AI content, removing specific markers if any remain by mistake
+// Enhanced helper to clean up AI content, removing specific markers and improving formatting
 function formatAndCleanContent(content: string): string {
   let cleanedContent = content;
-  // Removed 's' flag from regex for broader ES compatibility
+  
+  // Remove visualization markers
   cleanedContent = cleanedContent.replace(/\[NEEDS_VISUALIZATION:{.*?}\]/g, '');
-  // Add other cleaning rules if necessary
-  return cleanedContent;
+  
+  // Clean up extra whitespace but preserve intentional formatting
+  cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+  
+  // Ensure proper math delimiter formatting
+  cleanedContent = cleanedContent.replace(/\$\$(.*?)\$\$/g, '$$\n$1\n$$');
+  
+  return cleanedContent.trim();
 }
 
 export default function ChatMessages({ messages }: ChatMessagesProps) {
@@ -64,9 +78,11 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
             
             {/* Render message content (text parts) */}
             {message.content && (
-              <div className="prose prose-sm dark:prose-invert max-w-none break-words">
-                {formatAndCleanContent(message.content)}
-              </div>
+              <MarkdownRenderer 
+                content={formatAndCleanContent(message.content)}
+                className="break-words"
+                darkMode={true} // You can make this dynamic based on theme context
+              />
             )}
 
 
@@ -124,8 +140,11 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                         {toolName === 'displayPhysicsSimulation' && (
                           <MatterSimulator {...(result as any)} />
                         )}
+                        {toolName === 'performOCR' && (
+                          <OCRResult {...(result as any)} />
+                        )}
                         {/* Fallback for unhandled tools or to show raw result */}
-                        {!['displayMolecule3D', 'displayPlotlyChart', 'plotFunction2D', 'plotFunction3D', 'displayPhysicsSimulation'].includes(toolName) && (
+                        {!['displayMolecule3D', 'displayPlotlyChart', 'plotFunction2D', 'plotFunction3D', 'displayPhysicsSimulation', 'performOCR'].includes(toolName) && (
                            <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
                             <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tool: {toolName}</p>
                             <CodePreview code={JSON.stringify(result, null, 2)} />

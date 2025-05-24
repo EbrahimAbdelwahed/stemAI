@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { tool } from 'ai';
 import { physicsSimulationTool } from '../../../lib/ai/tools/physicsSimulationTool';
+import { executeOCR, ocrToolSchema } from '../../../lib/ai/tools/ocrTool';
 
 // Helper function to get proper props for molecule viewer (updated for advanced options)
 async function getPropsForMoleculeViewer(
@@ -242,10 +243,49 @@ export const displayPhysicsSimulation = tool({
   },
 });
 
+// OCR tool for extracting text from images
+export const performOCR = tool({
+  description: 'Extract text and mathematical formulas from images using GPT-4o vision capabilities. Use this when users request OCR, text extraction from images, or want to process screenshots/photos of documents, handwritten notes, or any image containing text.',
+  parameters: ocrToolSchema,
+  execute: async (params) => {
+    try {
+      console.log('[visualization_tools] performOCR execute called with:', params);
+      
+      const result = await executeOCR(params);
+      
+      if (result.error) {
+        return {
+          error: true,
+          errorMessage: result.errorMessage || 'OCR processing failed',
+          details: { mimeType: params.mimeType, imageSize: params.imageData?.length }
+        };
+      }
+      
+      return {
+        extractedText: result.extractedText,
+        hasFormulas: result.hasFormulas,
+        confidence: result.confidence,
+        processingTime: result.processingTime,
+        originalSize: result.originalSize,
+        optimizedSize: result.optimizedSize,
+        description: `OCR extracted ${result.extractedText.length} characters${result.hasFormulas ? ' including mathematical formulas' : ''}`
+      };
+    } catch (e: any) {
+      console.error(`[visualization_tools] Error in performOCR execute:`, e);
+      return { 
+        error: true, 
+        errorMessage: `Failed to perform OCR: ${e.message}`,
+        details: { mimeType: params.mimeType }
+      };
+    }
+  },
+});
+
 export const visualizationTools = {
   displayMolecule3D,
   plotFunction2D,
   plotFunction3D,
   displayPlotlyChart,
   displayPhysicsSimulation,
+  performOCR,
 }; 

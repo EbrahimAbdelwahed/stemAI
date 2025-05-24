@@ -6,11 +6,22 @@ interface FileUploaderProps {
   disabled?: boolean;
 }
 
+// File type constants
+const IMAGE_TYPES = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+const DOCUMENT_TYPES = ['.pdf', '.txt', '.doc', '.docx'];
+const ALL_TYPES = [...IMAGE_TYPES, ...DOCUMENT_TYPES];
+
 export default function FileUploader({ onUpload, isUploading = false, disabled = false }: FileUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // File type detection helper
+  const isImageFile = (fileName: string): boolean => {
+    const extension = '.' + fileName.split('.').pop()?.toLowerCase();
+    return IMAGE_TYPES.includes(extension);
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -47,6 +58,16 @@ export default function FileUploader({ onUpload, isUploading = false, disabled =
   const getFileIcon = (fileName: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
     
+    // Image file icons
+    if (isImageFile(fileName)) {
+      return (
+        <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+        </svg>
+      );
+    }
+    
+    // Document file icons
     switch(extension) {
       case 'pdf':
         return (
@@ -129,11 +150,11 @@ export default function FileUploader({ onUpload, isUploading = false, disabled =
               ></path>
             </svg>
             <span>
-              {isDragging ? 'Drop files here' : 'Upload documents'}
+              {isDragging ? 'Drop files here' : 'Upload files'}
               <span className="hidden sm:inline"> or drag and drop</span>
             </span>
             <span className="text-xs ml-2 text-gray-400">
-              (PDF, TXT, DOC, DOCX)
+              (Images: JPG, PNG, GIF | Documents: PDF, TXT, DOC, DOCX)
             </span>
           </>
         )}
@@ -144,7 +165,7 @@ export default function FileUploader({ onUpload, isUploading = false, disabled =
         className="hidden"
         onChange={handleFileInputChange}
         multiple
-        accept=".pdf,.txt,.doc,.docx"
+        accept={ALL_TYPES.join(',')}
         disabled={isUploading || disabled}
       />
       
@@ -158,6 +179,11 @@ export default function FileUploader({ onUpload, isUploading = false, disabled =
               <span className="ml-1 text-xs text-gray-400">
                 ({(file.size / 1024).toFixed(1)} KB)
               </span>
+              {isImageFile(file.name) && (
+                <span className="ml-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                  OCR
+                </span>
+              )}
             </div>
           ))}
         </div>
