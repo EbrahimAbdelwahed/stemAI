@@ -34,7 +34,7 @@ This document provides guidelines and information for developers working on the 
 
 To run the STEM AI Assistant application in a development environment, follow these steps:
 
-*REMEMBER THAT YOU ARE CURRENTLY RUNNING INTO A GOOGLE CLOUD VM INSTANCE, YOU MUST USE NGROK FOR PORT FORWARDING*
+*YOU ARE ON A WINDOWS MACHINE WITH CONSTRAINED RESOURCES*
 
 1.  **Navigate to the project directory:**
     ```bash

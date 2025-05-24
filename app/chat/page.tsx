@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useChat, Message as VercelMessage } from '@ai-sdk/react'; 
+import Link from 'next/link';
 import ModelSelector from '../../components/ModelSelector';
 import ChatInput from '../../components/ChatInput';
 import ChatMessages from '../../components/ChatMessages';
 import FileUploader from '../../components/FileUploader';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { Typography } from '../../components/ui/Typography';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import { track } from '@vercel/analytics';
@@ -212,56 +215,156 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
     originalHandleSubmit(e, options as any); 
   };
 
-
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
-      <header className="sticky top-0 z-10 flex items-center justify-between p-4 border-b bg-white dark:bg-gray-800 dark:border-gray-700">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">STEM AI Assistant</h1>
-        <div className="flex items-center space-x-2">
-          {/* Changed to onUpload as per linter suggestion */}
-          <FileUploader onUpload={handleFileUploadCallback} isUploading={isUploading} disabled={isLoading} />
-          <ModelSelector selectedModel={selectedModel} onModelChange={handleModelChange} disabled={isLoading}/>
-          <Button variant="outline" onClick={handleClearChat} disabled={isLoading} className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-            New Chat
-          </Button>
-        </div>
-      </header>
-
-      <main className="flex-1 overflow-y-auto p-6 space-y-4">
-        <div className="max-w-3xl mx-auto w-full">
-          {chatError && (
-            <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded relative mb-4" role="alert">
-              <strong className="font-bold">Error: </strong>
-              <span className="block sm:inline">{chatError.message}</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+      {/* Enhanced Navigation Header */}
+      <nav className="sticky top-0 z-50 glass border-b border-gray-800/50">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            {/* Logo and Navigation */}
+            <div className="flex items-center space-x-8">
+              <Link href="/" className="flex items-center space-x-2 group">
+                <div className="relative">
+                  <svg 
+                    className="w-8 h-8 text-blue-500 group-hover:text-blue-400 transition-colors duration-200" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                  <div className="absolute inset-0 w-8 h-8 bg-blue-500/20 rounded-full blur-md group-hover:bg-blue-400/30 transition-colors duration-200"></div>
+                </div>
+                <span className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors duration-200">
+                  STEM AI Assistant
+                </span>
+              </Link>
+              
+              {/* Navigation Links */}
+              <div className="hidden md:flex items-center space-x-6">
+                <Link href="/" className="nav-link">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                  Home
+                </Link>
+                <span className="nav-link nav-link-active">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  Chat
+                </span>
+                <Link href="/generate" className="nav-link">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                  </svg>
+                  UI Generator
+                </Link>
+                <Link href="/test-3dmol" className="nav-link">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                  3D Molecules
+                </Link>
+              </div>
             </div>
-          )}
-          {/* ChatMessages is now called without pendingVisualizations */}
-          <ChatMessages messages={messages} />
-          {isLoading && messages[messages.length -1]?.role === 'user' && (
-            <div className="flex justify-center items-center p-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-              <p className="ml-2 text-gray-600 dark:text-gray-400">AI is thinking...</p>
-            </div>
-          )}
-        </div>
-      </main>
 
-      <footer className="sticky bottom-0 z-10 p-4 border-t bg-white dark:bg-gray-800 dark:border-gray-700">
-        <div className="max-w-3xl mx-auto">
-          <ChatInput 
-            input={input} 
-            handleInputChange={handleInputChange} 
-            handleSubmit={handleSubmitWithOptions} 
-            isLoading={isLoading} 
-            reload={reload}
-            stop={stop}
-            disabled={isUploading}
-          />
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
-            Current Model: {selectedModel}. AI can make mistakes. Consider checking important information.
-          </p>
+            {/* Right side controls */}
+            <div className="flex items-center space-x-4">
+              <FileUploader onUpload={handleFileUploadCallback} isUploading={isUploading} disabled={isLoading} />
+              <ModelSelector selectedModel={selectedModel} onModelChange={handleModelChange} disabled={isLoading}/>
+              <Button 
+                variant="secondary" 
+                size="sm"
+                onClick={handleClearChat} 
+                disabled={isLoading}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                }
+              >
+                New Chat
+              </Button>
+            </div>
+          </div>
         </div>
-      </footer>
+      </nav>
+
+      {/* Main Chat Interface */}
+      <div className="flex flex-col h-[calc(100vh-4rem)]">
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {/* Error State */}
+            {chatError && (
+              <Card variant="highlight" className="mb-6 border-red-500/30 bg-red-500/5">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <Typography variant="small" color="error" className="font-medium">
+                      Chat Error
+                    </Typography>
+                    <Typography variant="muted" className="text-red-300">
+                      {chatError.message}
+                    </Typography>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Chat Messages */}
+            <ChatMessages messages={messages} />
+
+            {/* Loading State */}
+            {isLoading && messages[messages.length -1]?.role === 'user' && (
+              <Card variant="glass" className="mt-6">
+                <div className="flex items-center justify-center space-x-3 py-6">
+                  <div className="relative">
+                    <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 w-8 h-8 bg-blue-500/10 rounded-full blur-sm"></div>
+                  </div>
+                  <div>
+                    <Typography variant="small" className="text-blue-300 font-medium">
+                      AI is thinking...
+                    </Typography>
+                    <Typography variant="muted" className="text-xs">
+                      Processing your request with {selectedModel}
+                    </Typography>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
+        </main>
+
+        {/* Enhanced Chat Input Footer */}
+        <footer className="sticky bottom-0 z-10 glass border-t border-gray-800/50">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <ChatInput 
+              input={input} 
+              handleInputChange={handleInputChange} 
+              handleSubmit={handleSubmitWithOptions} 
+              isLoading={isLoading} 
+              reload={reload}
+              stop={stop}
+              disabled={isUploading}
+            />
+            <div className="flex items-center justify-between mt-3 text-xs">
+              <Typography variant="muted" className="flex items-center space-x-2">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span>Model: {selectedModel}</span>
+              </Typography>
+              <Typography variant="muted">
+                AI can make mistakes. Consider checking important information.
+              </Typography>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 } 
