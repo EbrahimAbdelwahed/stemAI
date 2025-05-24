@@ -61,6 +61,9 @@
   body {
     @apply bg-background text-foreground font-medium;
     font-feature-settings: 'rlig' 1, 'calt' 1;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   /* Enhanced focus styles for accessibility */
@@ -127,15 +130,23 @@
   
   /* Animation utilities */
   .animate-fade-in {
-    animation: fadeIn 0.5s ease-out;
+    animation: fade-in 0.6s ease-out forwards;
   }
   
   .animate-slide-up {
-    animation: slideUp 0.6s ease-out;
+    animation: slide-up 0.6s ease-out forwards;
   }
   
   .animate-scale-in {
-    animation: scaleIn 0.4s ease-out;
+    animation: scale-in 0.6s ease-out forwards;
+  }
+  
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  
+  .animation-delay-400 {
+    animation-delay: 400ms;
   }
   
   /* Navigation styles */
@@ -150,7 +161,7 @@
 }
 
 /* Keyframe animations */
-@keyframes fadeIn {
+@keyframes fade-in {
   from {
     opacity: 0;
   }
@@ -159,7 +170,7 @@
   }
 }
 
-@keyframes slideUp {
+@keyframes slide-up {
   from {
     opacity: 0;
     transform: translateY(20px);
@@ -170,10 +181,10 @@
   }
 }
 
-@keyframes scaleIn {
+@keyframes scale-in {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.9);
   }
   to {
     opacity: 1;
@@ -238,20 +249,21 @@
 
 /* Enhanced scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-900;
+  background: rgb(17 24 39);
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full;
+  background: rgb(55 65 81);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-600;
+  background: rgb(75 85 99);
 }
 
 /* Math styling */
@@ -295,5 +307,142 @@
 
 .prose td {
   @apply bg-gray-900/50;
+}
+
+/* Enhanced text visibility in chat messages */
+.glass .prose {
+  @apply text-gray-100;
+}
+
+.glass .prose p {
+  @apply text-gray-200;
+}
+
+.glass .prose h1, .glass .prose h2, .glass .prose h3, .glass .prose h4, .glass .prose h5, .glass .prose h6 {
+  @apply text-gray-100;
+}
+
+.glass .prose strong {
+  @apply text-gray-100;
+}
+
+.glass .prose em {
+  @apply text-gray-200;
+}
+
+.glass .prose code {
+  @apply bg-gray-800 text-gray-100;
+}
+
+/* Input field visibility improvements */
+textarea:focus::placeholder {
+  @apply text-gray-400 dark:text-gray-500;
+}
+
+/* Ensure proper text contrast */
+.text-contrast-fix {
+  color: rgb(243 244 246) !important; /* force gray-100 */
+}
+
+.glass .text-contrast-fix {
+  color: rgb(243 244 246) !important; /* force gray-100 */
+}
+
+/* Selection color */
+::selection {
+  background-color: rgba(59, 130, 246, 0.3);
+  color: white;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Button base styles */
+.btn-primary {
+  @apply px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300;
+}
+
+.btn-secondary {
+  @apply px-6 py-3 bg-gray-800/50 backdrop-blur-sm border border-gray-700 text-white font-semibold rounded-xl hover:bg-gray-800/70 transition-all duration-300;
+}
+
+/* Navigation link styles */
+.nav-link {
+  @apply text-gray-300 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800/50 transition-colors duration-200;
+}
+
+/* Card hover effects */
+.card-hover {
+  @apply transition-all duration-300 hover:translate-y-[-4px] hover:shadow-2xl;
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent;
+}
+
+/* Glow effect */
+.glow {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+}
+
+/* Loading spinner */
+.spinner {
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Chat message animations */
+.message-enter {
+  animation: message-slide-in 0.3s ease-out;
+}
+
+@keyframes message-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Focus styles */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+/* Responsive typography */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Dark mode color scheme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 10, 10, 10;
+    --background-end-rgb: 10, 10, 10;
+  }
 }
 

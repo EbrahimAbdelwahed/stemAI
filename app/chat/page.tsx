@@ -3,13 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useChat, Message as VercelMessage } from '@ai-sdk/react'; 
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import ModelSelector from '../../components/ModelSelector';
 import ChatInput from '../../components/ChatInput';
 import ChatMessages from '../../components/ChatMessages';
 import FileUploader from '../../components/FileUploader';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { Typography } from '../../components/ui/Typography';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import { track } from '@vercel/analytics';
@@ -27,7 +25,7 @@ export default function ChatPage() {
   const [chatId, setChatId] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<ModelType>('gpt-4o');
   const [isUploading, setIsUploading] = useState(false);
-  // pendingVisualizations state is removed as per refactoring plan.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { 
     messages, 
@@ -67,9 +65,9 @@ export default function ChatPage() {
           const parsedMessages: Message[] = JSON.parse(storedMessages);
           const validMessages = parsedMessages.map(msg => ({
             ...msg,
-            // Ensure `parts` is always an array, even if empty, for consistent rendering logic.
-            // And provide a default text part if only content string exists, for older SDK versions.
-            parts: msg.parts && msg.parts.length > 0 ? msg.parts : (msg.content ? [{ type: 'text', text: msg.content as string }] : [])
+            parts: msg.parts && msg.parts.length > 0 
+              ? msg.parts 
+              : (msg.content ? [{ type: 'text' as const, text: msg.content as string }] : [])
           }));
           setMessages(validMessages);
         } catch (e) {
@@ -87,7 +85,7 @@ export default function ChatPage() {
           id: 'welcome',
           role: 'assistant',
           content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
-          parts: [{ type: 'text', text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
+          parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
         }
       ]);
     }
@@ -203,7 +201,7 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
       id: 'welcome',
       role: 'assistant',
       content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
-      parts: [{ type: 'text', text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
+      parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
     };
     setMessages([welcomeMessage]);
     toast.info('Chat cleared and new session started.');
@@ -215,155 +213,225 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
     originalHandleSubmit(e, options as any); 
   };
 
+  const quickActions = [
+    { icon: '🧮', label: 'Solve equation', prompt: 'Help me solve this equation: ' },
+    { icon: '🔬', label: 'Explain concept', prompt: 'Explain this scientific concept: ' },
+    { icon: '📊', label: 'Analyze data', prompt: 'Help me analyze this data: ' },
+    { icon: '💡', label: 'Give examples', prompt: 'Give me examples of: ' },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-      {/* Enhanced Navigation Header */}
-      <nav className="sticky top-0 z-50 glass border-b border-gray-800/50">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            {/* Logo and Navigation */}
-            <div className="flex items-center space-x-8">
-              <Link href="/" className="flex items-center space-x-2 group">
-                <div className="relative">
-                  <svg 
-                    className="w-8 h-8 text-blue-500 group-hover:text-blue-400 transition-colors duration-200" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  <div className="absolute inset-0 w-8 h-8 bg-blue-500/20 rounded-full blur-md group-hover:bg-blue-400/30 transition-colors duration-200"></div>
-                </div>
-                <span className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors duration-200">
-                  STEM AI Assistant
-                </span>
-              </Link>
-              
-              {/* Navigation Links */}
-              <div className="hidden md:flex items-center space-x-6">
-                <Link href="/" className="nav-link">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  Home
-                </Link>
-                <span className="nav-link nav-link-active">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  Chat
-                </span>
-                <Link href="/generate" className="nav-link">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                  </svg>
-                  UI Generator
-                </Link>
-                <Link href="/test-3dmol" className="nav-link">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  3D Molecules
-                </Link>
+      {/* Enhanced Header with Tools */}
+      <motion.header 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="sticky top-16 z-40 glass border-b border-gray-800/50"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center space-x-4">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 rounded-lg hover:bg-gray-800/50 transition-colors"
+              >
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </motion.button>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                <span className="text-sm text-gray-400">AI Assistant Ready</span>
               </div>
             </div>
 
-            {/* Right side controls */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <FileUploader onUpload={handleFileUploadCallback} isUploading={isUploading} disabled={isLoading} />
               <ModelSelector selectedModel={selectedModel} onModelChange={handleModelChange} disabled={isLoading}/>
-              <Button 
-                variant="secondary" 
-                size="sm"
-                onClick={handleClearChat} 
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleClearChat}
                 disabled={isLoading}
-                icon={
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                }
+                className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-all duration-200 disabled:opacity-50"
               >
-                New Chat
-              </Button>
+                <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </motion.button>
             </div>
           </div>
         </div>
-      </nav>
+      </motion.header>
 
-      {/* Main Chat Interface */}
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            {/* Error State */}
-            {chatError && (
-              <Card variant="highlight" className="mb-6 border-red-500/30 bg-red-500/5">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <Typography variant="small" color="error" className="font-medium">
-                      Chat Error
-                    </Typography>
-                    <Typography variant="muted" className="text-red-300">
-                      {chatError.message}
-                    </Typography>
-                  </div>
+      <div className="flex h-[calc(100vh-8rem)]">
+        {/* Sidebar */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <motion.aside
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="w-80 glass border-r border-gray-800/50 overflow-y-auto"
+            >
+              <div className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-gray-200">Chat History</h3>
+                <div className="space-y-2">
+                  <motion.div
+                    whileHover={{ x: 4 }}
+                    className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 cursor-pointer"
+                  >
+                    <p className="text-sm font-medium text-blue-300">Current Chat</p>
+                    <p className="text-xs text-gray-400 mt-1">{messages.length} messages</p>
+                  </motion.div>
                 </div>
-              </Card>
-            )}
 
-            {/* Chat Messages */}
-            <ChatMessages messages={messages} />
-
-            {/* Loading State */}
-            {isLoading && messages[messages.length -1]?.role === 'user' && (
-              <Card variant="glass" className="mt-6">
-                <div className="flex items-center justify-center space-x-3 py-6">
-                  <div className="relative">
-                    <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 w-8 h-8 bg-blue-500/10 rounded-full blur-sm"></div>
-                  </div>
-                  <div>
-                    <Typography variant="small" className="text-blue-300 font-medium">
-                      AI is thinking...
-                    </Typography>
-                    <Typography variant="muted" className="text-xs">
-                      Processing your request with {selectedModel}
-                    </Typography>
-                  </div>
+                <h3 className="text-lg font-semibold mb-4 mt-8 text-gray-200">Quick Actions</h3>
+                <div className="space-y-2">
+                  {quickActions.map((action, index) => (
+                    <motion.button
+                      key={index}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleInputChange({ target: { value: action.prompt } } as any)}
+                      className="w-full text-left p-3 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-all duration-200"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-2xl">{action.icon}</span>
+                        <span className="text-sm text-gray-300">{action.label}</span>
+                      </div>
+                    </motion.button>
+                  ))}
                 </div>
-              </Card>
-            )}
-          </div>
-        </main>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
 
-        {/* Enhanced Chat Input Footer */}
-        <footer className="sticky bottom-0 z-10 glass border-t border-gray-800/50">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <ChatInput 
-              input={input} 
-              handleInputChange={handleInputChange} 
-              handleSubmit={handleSubmitWithOptions} 
-              isLoading={isLoading} 
-              reload={reload}
-              stop={stop}
-              disabled={isUploading}
-            />
-            <div className="flex items-center justify-between mt-3 text-xs">
-              <Typography variant="muted" className="flex items-center space-x-2">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                <span>Model: {selectedModel}</span>
-              </Typography>
-              <Typography variant="muted">
-                AI can make mistakes. Consider checking important information.
-              </Typography>
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col">
+          <main className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              {/* Error State */}
+              <AnimatePresence>
+                {chatError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="mb-6"
+                  >
+                    <div className="glass p-4 rounded-xl border border-red-500/30 bg-red-500/5">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-red-300">Chat Error</p>
+                          <p className="text-xs text-red-200/70">{chatError.message}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Enhanced Chat Messages */}
+              <div className="space-y-6">
+                <AnimatePresence>
+                  {messages.map((message, index) => (
+                    <motion.div
+                      key={message.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <ChatMessages messages={[message]} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+
+              {/* Enhanced Loading State */}
+              <AnimatePresence>
+                {isLoading && messages[messages.length - 1]?.role === 'user' && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="mt-6"
+                  >
+                    <div className="glass p-6 rounded-xl border border-blue-500/20">
+                      <div className="flex items-center space-x-4">
+                        <div className="relative">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                            className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full"
+                          />
+                          <div className="absolute inset-0 w-10 h-10 bg-blue-500/10 rounded-full blur-md" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-blue-300">AI is analyzing your request...</p>
+                          <p className="text-xs text-gray-400 mt-1">Using {selectedModel}</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex space-x-1">
+                        {[0, 1, 2].map((i) => (
+                          <motion.div
+                            key={i}
+                            animate={{ opacity: [0.3, 1, 0.3] }}
+                            transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                            className="w-2 h-2 bg-blue-400 rounded-full"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          </div>
-        </footer>
+          </main>
+
+          {/* Enhanced Input Area */}
+          <motion.footer 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="glass border-t border-gray-800/50"
+          >
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <ChatInput 
+                input={input} 
+                handleInputChange={handleInputChange} 
+                handleSubmit={handleSubmitWithOptions} 
+                isLoading={isLoading} 
+                reload={reload}
+                stop={stop}
+                disabled={isUploading}
+              />
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center space-x-4 text-xs text-gray-400">
+                  <span className="flex items-center space-x-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Powered by {selectedModel}</span>
+                  </span>
+                  <span>•</span>
+                  <span>Shift + Enter for new line</span>
+                </div>
+                <span className="text-xs text-gray-400">
+                  AI can make mistakes. Verify important information.
+                </span>
+              </div>
+            </div>
+          </motion.footer>
+        </div>
       </div>
     </div>
   );

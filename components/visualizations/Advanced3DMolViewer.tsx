@@ -57,6 +57,25 @@ function createEnhancedCacheKey(
   return `${identifierType}:${identifier}:${representationStyle}:${colorScheme}:${selectionsStr}:${showSurface}:${surfaceType}:${surfaceOpacity}:${showLabels}:${backgroundColor}`;
 }
 
+// Utility function to clear problematic cache entries
+export function clearAdvancedMoleculeCache(identifierType?: string, identifier?: string) {
+  if (identifierType && identifier) {
+    // Clear specific molecule from cache
+    const pattern = `${identifierType}:${identifier}:`;
+    for (const key of enhancedMoleculeCache.keys()) {
+      if (key.startsWith(pattern)) {
+        enhancedMoleculeCache.delete(key);
+        enhancedSuccessfullyRendered.delete(key);
+      }
+    }
+  } else {
+    // Clear all cache
+    enhancedMoleculeCache.clear();
+    enhancedSuccessfullyRendered.clear();
+  }
+  console.log('[Advanced3DMolViewer] Cleared enhanced molecule cache');
+}
+
 export interface Advanced3DMolViewerProps {
   identifierType: 'smiles' | 'pdb' | 'name' | 'cid';
   identifier: string;
@@ -109,28 +128,32 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
   const wasSuccessfullyRendered = enhancedSuccessfullyRendered.has(cacheKey);
   const cachedMolecule = enhancedMoleculeCache.get(cacheKey);
 
+  // Enhanced effect with better duplicate prevention
   useEffect(() => {
-    // Enhanced prevention logic
-    if (renderedRef.current) {
-      console.log('[Advanced3DMolViewer] Already rendered in this instance:', cacheKey);
-      return;
-    }
-
     if (executedRef.current === cacheKey) {
-      console.log('[Advanced3DMolViewer] Already executed for:', cacheKey);
+      console.log('[Advanced3DMolViewer] Already executed for cache key:', cacheKey);
       return;
     }
 
+    // Check if this exact configuration was already successfully rendered
     if (wasSuccessfullyRendered && cachedMolecule) {
-      console.log('[Advanced3DMolViewer] Using cached successful render for:', cacheKey);
-      // Fast path: render immediately from cache
+      console.log('[Advanced3DMolViewer] Using cached molecule:', cacheKey);
       renderFromCache(cachedMolecule);
       return;
     }
 
+    // Mark this cache key as being executed to prevent re-execution
+    console.log('[Advanced3DMolViewer] Marking as executed:', cacheKey);
+    executedRef.current = cacheKey;
+
+    // Reset state for new render
+    setError(null);
+    setIsLoaded(false);
+    setStatus('Initializing 3D viewer...');
+    renderedRef.current = false;
+
     const load3DMol = async () => {
       console.log('[Advanced3DMolViewer] Starting fresh initialization for:', cacheKey);
-      executedRef.current = cacheKey;
       
       try {
         setStatus('Loading 3Dmol.js...');
@@ -286,7 +309,7 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
     load3DMol();
   }, [cacheKey]); // Using cacheKey to include all visualization options
 
-  // Helper function to render from cache
+  // Helper function to render from cache with enhanced duplicate prevention
   const renderFromCache = async (cached: EnhancedCachedMolecule) => {
     try {
       setStatus('Loading from cache...');
@@ -325,22 +348,32 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
 
       setStatus('Rendering cached molecule...');
       
-      // Clear container
+      // Clear container completely to prevent duplication
       containerRef.current.innerHTML = '';
       
-      // Create viewer with cached background color
+      // Add a small delay to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Create viewer
       const viewer = window.$3Dmol.createViewer(containerRef.current, {
-        backgroundColor: cached.backgroundColor,
+        backgroundColor: cached.backgroundColor || backgroundColor,
         antialias: true,
         width: containerRef.current.offsetWidth,
         height: containerRef.current.offsetHeight
       });
 
-      // Render from cached data with all options
+      // Render from cached data with all advanced options
       await renderAdvancedMolecule(
-        viewer, cached.moleculeData, cached.format, cached.representationStyle, 
-        cached.colorScheme, cached.selections, cached.showSurface, 
-        cached.surfaceType, cached.surfaceOpacity, cached.showLabels
+        viewer, 
+        cached.moleculeData, 
+        cached.format, 
+        cached.representationStyle,
+        cached.colorScheme,
+        cached.selections || [],
+        cached.showSurface || false,
+        cached.surfaceType || 'vdw',
+        cached.surfaceOpacity || 0.7,
+        cached.showLabels || false
       );
       
       renderedRef.current = true;
@@ -353,6 +386,8 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
       // If cache fails, remove from cache and try fresh
       enhancedMoleculeCache.delete(cacheKey);
       enhancedSuccessfullyRendered.delete(cacheKey);
+      // Reset execution guard to allow retry
+      executedRef.current = '';
       setError(error.message);
       setStatus('❌ Failed to load from cache');
     }

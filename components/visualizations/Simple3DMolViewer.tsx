@@ -37,6 +37,25 @@ function createCacheKey(identifierType: string, identifier: string, representati
   return `${identifierType}:${identifier}:${representationStyle}`;
 }
 
+// Utility function to clear problematic cache entries
+export function clearMoleculeCache(identifierType?: string, identifier?: string) {
+  if (identifierType && identifier) {
+    // Clear specific molecule from cache
+    const pattern = `${identifierType}:${identifier}:`;
+    for (const key of globalMoleculeCache.keys()) {
+      if (key.startsWith(pattern)) {
+        globalMoleculeCache.delete(key);
+        successfullyRendered.delete(key);
+      }
+    }
+  } else {
+    // Clear all cache
+    globalMoleculeCache.clear();
+    successfullyRendered.clear();
+  }
+  console.log('[Simple3DMolViewer] Cleared molecule cache');
+}
+
 export interface Simple3DMolViewerProps {
   identifierType: 'smiles' | 'pdb' | 'name' | 'cid';
   identifier: string;
@@ -69,27 +88,30 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
   const cachedMolecule = globalMoleculeCache.get(cacheKey);
 
   useEffect(() => {
-    // Enhanced prevention logic
-    if (renderedRef.current) {
-      console.log('[Simple3DMolViewer] Already rendered in this instance:', cacheKey);
-      return;
-    }
-
     if (executedRef.current === cacheKey) {
-      console.log('[Simple3DMolViewer] Already executed for:', cacheKey);
+      console.log('[Simple3DMolViewer] Already executed for cache key:', cacheKey);
       return;
     }
 
+    // Check if this exact configuration was already successfully rendered
     if (wasSuccessfullyRendered && cachedMolecule) {
-      console.log('[Simple3DMolViewer] Using cached successful render for:', cacheKey);
-      // Fast path: render immediately from cache
+      console.log('[Simple3DMolViewer] Using cached molecule:', cacheKey);
       renderFromCache(cachedMolecule);
       return;
     }
 
+    // Mark this cache key as being executed to prevent re-execution
+    console.log('[Simple3DMolViewer] Marking as executed:', cacheKey);
+    executedRef.current = cacheKey;
+
+    // Reset state for new render
+    setError(null);
+    setIsLoaded(false);
+    setStatus('Initializing 3D viewer...');
+    renderedRef.current = false;
+
     const load3DMol = async () => {
       console.log('[Simple3DMolViewer] Starting fresh initialization for:', cacheKey);
-      executedRef.current = cacheKey;
       
       try {
         setStatus('Loading 3Dmol.js...');
@@ -274,8 +296,11 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
 
       setStatus('Rendering cached molecule...');
       
-      // Clear container
+      // Clear container completely to prevent duplication
       containerRef.current.innerHTML = '';
+      
+      // Add a small delay to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Create viewer
       const viewer = window.$3Dmol.createViewer(containerRef.current, {
@@ -298,6 +323,8 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
       // If cache fails, remove from cache and try fresh
       globalMoleculeCache.delete(cacheKey);
       successfullyRendered.delete(cacheKey);
+      // Reset execution guard to allow retry
+      executedRef.current = '';
       setError(error.message);
       setStatus('❌ Failed to load from cache');
     }
