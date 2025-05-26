@@ -18,8 +18,8 @@ export default {
     error: '/auth/error',
   },
   callbacks: {
-    authorized({ token, request: { nextUrl } }) {
-      const isLoggedIn = !!token
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user
       const isOnProfile = nextUrl.pathname.startsWith('/profile')
       
       if (isOnProfile) {

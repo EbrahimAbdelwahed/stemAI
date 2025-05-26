@@ -9,11 +9,11 @@ import {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
-    const conversationId = params.id
+    const { id: conversationId } = await params
 
     // Allow both authenticated and anonymous access
     // For authenticated users, verify ownership
@@ -48,7 +48,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -59,7 +59,7 @@ export async function PUT(
       })
     }
 
-    const conversationId = params.id
+    const { id: conversationId } = await params
     const body = await request.json()
     const { title, isArchived } = body
 
@@ -100,7 +100,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -111,7 +111,7 @@ export async function DELETE(
       })
     }
 
-    const conversationId = params.id
+    const { id: conversationId } = await params
     const { searchParams } = new URL(request.url)
     const archive = searchParams.get('archive') === 'true'
 

@@ -4,6 +4,8 @@ import { signIn, signOut, useSession } from 'next-auth/react'
 import { Button } from './button'
 import { Typography } from './Typography'
 import { useState } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
 
 interface AuthButtonProps {
   variant?: 'primary' | 'outline' | 'ghost'
@@ -108,9 +110,11 @@ export function UserAvatar({ size = 'md', className }: UserAvatarProps) {
   return (
     <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-medium ${className}`}>
       {user.image ? (
-        <img
+        <Image
           src={user.image}
           alt={user.name || 'User'}
+          width={40}
+          height={40}
           className="w-full h-full rounded-full object-cover"
         />
       ) : (
@@ -160,20 +164,20 @@ export function UserMenu({ className }: UserMenuProps) {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-50">
           <div className="p-2">
-            <a
+            <Link
               href="/profile"
               className="block px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
               onClick={() => setIsOpen(false)}
             >
               Profile
-            </a>
-            <a
+            </Link>
+            <Link
               href="/chat"
               className="block px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-700 rounded transition-colors"
               onClick={() => setIsOpen(false)}
             >
               Chat History
-            </a>
+            </Link>
             <hr className="my-2 border-neutral-700" />
             <button
               onClick={() => {

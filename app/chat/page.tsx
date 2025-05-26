@@ -459,7 +459,6 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
               handleInputChange={handleInputChange} 
               handleSubmit={handleSubmitWithOptions} 
               isLoading={isLoading} 
-              reload={reload}
               stop={stop}
               disabled={isUploading}
               selectedModel={selectedModel}
