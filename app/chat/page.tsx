@@ -1,33 +1,87 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useChat, Message as VercelMessage } from '@ai-sdk/react'; 
-import Link from 'next/link';
-import ModelSelector from '../../components/ModelSelector';
+import { useChat, Message as VercelMessage } from '@ai-sdk/react';
 import ChatInput from '../../components/ChatInput';
 import ChatMessages from '../../components/ChatMessages';
-import FileUploader from '../../components/FileUploader';
-import { Button } from '../../components/ui/Button';
+import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/Card';
 import { Typography } from '../../components/ui/Typography';
+import { AppLayout } from '../../components/layout/AppLayout';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import { track } from '@vercel/analytics';
+import { ChatFlowTracker, trackError } from '@/lib/analytics/event-tracking';
+import { RealDataCollector } from '@/lib/analytics/real-data-collector';
+import { TypingIndicator } from '../../components/ui/LoadingStates';
 
 // Message type from Vercel AI SDK is used directly.
 // The SDK's Message type should include toolInvocations for Vercel AI SDK v3+.
 type Message = VercelMessage;
 
-type ModelType = 'grok-3-mini' | 'gemini-2-flash' | 'gpt-4o' | 'claude-3-haiku';
+type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307';
 
 const LOCAL_STORAGE_CHAT_ID_KEY = 'stem-ai-chat-id';
 const LOCAL_STORAGE_MESSAGES_KEY_PREFIX = 'stem-ai-chat-messages-';
 
 export default function ChatPage() {
   const [chatId, setChatId] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<ModelType>('gpt-4o');
+  const [selectedModel, setSelectedModel] = useState<ModelType>('grok-3-mini'); // Default to Grok-3-Mini (uses special tokens)
   const [isUploading, setIsUploading] = useState(false);
+  const [sessionStartTime] = useState<number>(Date.now());
+  const realDataCollector = RealDataCollector.getInstance();
   // pendingVisualizations state is removed as per refactoring plan.
+
+  const onFinishHandler = useCallback((message: Message) => {
+    console.log('[ChatPage] onFinish called with message:', message);
+    track('ChatResponded', { model: selectedModel, messageId: message.id });
+    
+    const responseTime = performance.now() - ((window as unknown as { lastMessageTime?: number }).lastMessageTime || 0);
+    ChatFlowTracker.aiResponseReceived({
+      model: selectedModel,
+      response_time: responseTime,
+      token_count: message.content?.length || 0,
+      tool_calls: message.toolInvocations?.length || 0,
+      success: true
+    });
+    
+    if (message.toolInvocations && message.toolInvocations.length > 0) {
+      message.toolInvocations.forEach((tool, index) => {
+        let tool_type = 'unknown';
+        if (tool.toolName === 'displayMolecule3D') tool_type = '3dmol';
+        else if (tool.toolName === 'displayPhysicsSimulation') tool_type = 'physics';
+        else if (tool.toolName === 'plotFunction2D' || tool.toolName === 'plotFunction3D' || tool.toolName === 'displayPlotlyChart') tool_type = 'plotly';
+        else if (tool.toolName.toLowerCase().includes('search') || tool.toolName.toLowerCase().includes('document')) tool_type = 'rag';
+
+        realDataCollector.storeUserEvent('tool_invoked', {
+          tool_name: tool.toolName,
+          tool_args: tool.args,
+          tool_result: 'result' in tool ? tool.result : 'pending',
+          tool_type: tool_type,
+          model: selectedModel,
+          chatId: chatId,
+          response_time: responseTime,
+          tool_index: index,
+          total_tools: message.toolInvocations?.length || 0
+        }, '/chat');
+      });
+    }
+    
+    realDataCollector.storeUserEvent('ai_response_completed', {
+      model: selectedModel,
+      response_time: responseTime,
+      content_length: message.content?.length || 0,
+      tool_count: message.toolInvocations?.length || 0,
+      chatId: chatId,
+    }, '/chat');
+  }, [selectedModel, chatId, realDataCollector]);
+
+  const onErrorHandler = useCallback((err: Error) => {
+    console.error('[ChatPage] Chat error from onError callback:', err);
+    toast.error(`Chat error: ${err.message}`);
+    track('ChatError', { model: selectedModel, error: err.message });
+    trackError(err, 'ChatPage', true);
+  }, [selectedModel, chatId, realDataCollector]);
 
   const { 
     messages, 
@@ -46,15 +100,8 @@ export default function ChatPage() {
       model: selectedModel,
     },
     id: chatId, 
-    onFinish: (message) => {
-      console.log('[ChatPage] onFinish called with message:', message);
-      track('ChatResponded', { model: selectedModel, messageId: message.id });
-    },
-    onError: (err) => {
-      console.error('[ChatPage] Chat error from onError callback:', err);
-      toast.error(`Chat error: ${err.message}`);
-      track('ChatError', { model: selectedModel, error: err.message });
-    },
+    onFinish: onFinishHandler,
+    onError: onErrorHandler,
   });
 
   useEffect(() => {
@@ -69,9 +116,16 @@ export default function ChatPage() {
             ...msg,
             // Ensure `parts` is always an array, even if empty, for consistent rendering logic.
             // And provide a default text part if only content string exists, for older SDK versions.
-            parts: msg.parts && msg.parts.length > 0 ? msg.parts : (msg.content ? [{ type: 'text', text: msg.content as string }] : [])
+            parts: msg.parts && msg.parts.length > 0 ? msg.parts : (msg.content ? [{ type: 'text' as const, text: msg.content as string }] : [])
           }));
           setMessages(validMessages);
+          
+          // Track session resume
+          realDataCollector.storeUserEvent('chat_session_resumed', {
+            chatId: storedChatId,
+            message_count: validMessages.length,
+            model: selectedModel
+          }, '/chat');
         } catch (e) {
           console.error("Failed to parse messages from localStorage", e);
           localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${storedChatId}`);
@@ -87,12 +141,22 @@ export default function ChatPage() {
           id: 'welcome',
           role: 'assistant',
           content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
-          parts: [{ type: 'text', text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
+          parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
         }
       ]);
+      
+      // Track new session start
+      realDataCollector.storeUserEvent('chat_session_started', {
+        chatId: newChatId,
+        model: selectedModel,
+        session_start_time: sessionStartTime
+      }, '/chat');
     }
+    
+    // Track page view for chat page
+    realDataCollector.storePageView('/chat', document.referrer, navigator.userAgent);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setChatId, setMessages]); // Adjusted dependencies to reflect what causes initialization
+  }, [setChatId, setMessages, selectedModel, realDataCollector, sessionStartTime]); // Added missing dependencies
 
   useEffect(() => {
     if (chatId && messages.length > 0) {
@@ -109,8 +173,18 @@ export default function ChatPage() {
   // fetchVisualizationParams function is removed.
 
   const handleModelChange = (newModel: ModelType) => {
+    const previousModel = selectedModel;
     setSelectedModel(newModel);
     track('ModelChanged', { newModel });
+    
+    // Enhanced model change tracking
+    realDataCollector.storeUserEvent('model_changed', {
+      previous_model: previousModel,
+      new_model: newModel,
+      chatId: chatId,
+      conversation_length: messages.length,
+      session_duration: Date.now() - sessionStartTime
+    }, '/chat');
   };
 
   const handleFileUploadCallback = useCallback((files: File[]) => {
@@ -131,6 +205,17 @@ export default function ChatPage() {
           console.log(`[ChatPage] Processing ${isImage ? 'image' : 'document'}: ${file.name}`);
           toast.info(`Processing ${file.name}...`);
           track('FileUploadStarted', { fileName: file.name, fileSize: file.size, fileType: isImage ? 'image' : 'document' });
+          
+          // Enhanced upload tracking
+          const uploadStartTime = performance.now();
+          realDataCollector.storeUserEvent('file_upload_started', {
+            file_name: file.name,
+            file_size: file.size,
+            file_type: isImage ? 'image' : 'document',
+            chatId: chatId,
+            model: selectedModel,
+            upload_start_time: uploadStartTime
+          }, '/chat');
 
           const formData = new FormData();
           formData.append('file', file);
@@ -159,7 +244,7 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
               id: uuidv4(),
               role: 'assistant',
               content: ocrMessage,
-              parts: [{ type: 'text', text: ocrMessage }]
+              parts: [{ type: 'text' as const, text: ocrMessage }]
             });
 
             toast.success(`OCR completed for ${file.name}! ${result.extractedText.length} characters extracted.`);
@@ -169,6 +254,18 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
               hasFormulas: result.hasFormulas,
               processingTime: result.processingTime 
             });
+            
+            // Enhanced OCR success tracking
+            realDataCollector.storeUserEvent('ocr_completed', {
+              file_name: file.name,
+              text_length: result.extractedText.length,
+              has_formulas: result.hasFormulas,
+              processing_time: result.processingTime,
+              file_size: file.size,
+              chatId: chatId,
+              model: selectedModel,
+              success: true
+            }, '/chat');
           } else {
             // Handle document upload result
             toast.success(`${file.name} uploaded successfully! You can now ask questions about it.`);
@@ -176,15 +273,27 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
               id: uuidv4(),
               role: 'user',
               content: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`,
-              parts: [{type: 'text', text: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`}]
+              parts: [{type: 'text' as const, text: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`}]
             });
             track('FileUploadSucceeded', { fileName: file.name, documentId: result.documentId });
+            
+            // Enhanced document upload success tracking
+            realDataCollector.storeUserEvent('document_uploaded', {
+              file_name: file.name,
+              document_id: result.documentId,
+              file_size: file.size,
+              chatId: chatId,
+              model: selectedModel,
+              processing_time: performance.now() - uploadStartTime,
+              success: true
+            }, '/chat');
           }
 
-        } catch (error: any) {
-          console.error(`File processing error for ${file.name}:`, error);
-          toast.error(`Processing failed for ${file.name}: ${error.message}`);
-          track('FileProcessingFailed', { fileName: file.name, error: error.message, fileType: isImage ? 'image' : 'document' });
+                            } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error(`File processing error for ${file.name}:`, error);
+            toast.error(`Processing failed for ${file.name}: ${errorMessage}`);
+            track('FileProcessingFailed', { fileName: file.name, error: errorMessage, fileType: isImage ? 'image' : 'document' });
         }
       }
     };
@@ -192,9 +301,22 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
     processFiles().finally(() => {
       setIsUploading(false);
     });
-  }, [append, setIsUploading]);
+  }, [append, setIsUploading, chatId, selectedModel, realDataCollector]);
 
   const handleClearChat = () => {
+    const oldChatId = chatId;
+    const sessionDuration = Date.now() - sessionStartTime;
+    const messageCount = messages.length;
+    
+    // Track session end before clearing
+    realDataCollector.storeUserEvent('chat_session_ended', {
+      chatId: oldChatId,
+      session_duration: sessionDuration,
+      message_count: messageCount,
+      model: selectedModel,
+      end_reason: 'user_cleared'
+    }, '/chat');
+    
     const newChatId = uuidv4();
     if(chatId) localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatId}`);
     setChatId(newChatId); 
@@ -203,76 +325,53 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
       id: 'welcome',
       role: 'assistant',
       content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
-      parts: [{ type: 'text', text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
+      parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
     };
     setMessages([welcomeMessage]);
     toast.info('Chat cleared and new session started.');
     track('ChatCleared');
+    
+    // Track new session start
+    realDataCollector.storeUserEvent('chat_session_started', {
+      chatId: newChatId,
+      model: selectedModel,
+      session_start_time: Date.now(),
+      previous_session: oldChatId
+    }, '/chat');
   };
   
-  const handleSubmitWithOptions = (e: React.FormEvent<HTMLFormElement>, options?: { data?: Record<string, any> }) => {
+  const handleSubmitWithOptions = (e: React.FormEvent<HTMLFormElement>, options?: Parameters<typeof originalHandleSubmit>[1]) => {
     track('ChatSubmitted', { model: selectedModel, inputLength: input.length });
-    originalHandleSubmit(e, options as any); 
+    
+    // Enhanced analytics tracking
+    (window as unknown as { lastMessageTime?: number }).lastMessageTime = performance.now();
+    ChatFlowTracker.messageSent({
+      model: selectedModel,
+      message_length: input.length,
+      has_attachments: false, // Could be enhanced to detect attachments
+      context_included: messages.length > 1
+    });
+    ChatFlowTracker.aiProcessingStarted(selectedModel);
+    
+    originalHandleSubmit(e, options); 
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-      {/* Enhanced Navigation Header */}
-      <nav className="sticky top-0 z-50 glass border-b border-gray-800/50">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            {/* Logo and Navigation */}
-            <div className="flex items-center space-x-8">
-              <Link href="/" className="flex items-center space-x-2 group">
-                <div className="relative">
-                  <svg 
-                    className="w-8 h-8 text-blue-500 group-hover:text-blue-400 transition-colors duration-200" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  <div className="absolute inset-0 w-8 h-8 bg-blue-500/20 rounded-full blur-md group-hover:bg-blue-400/30 transition-colors duration-200"></div>
-                </div>
-                <span className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors duration-200">
-                  STEM AI Assistant
-                </span>
-              </Link>
-              
-              {/* Navigation Links */}
-              <div className="hidden md:flex items-center space-x-6">
-                <Link href="/" className="nav-link">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  Home
-                </Link>
-                <span className="nav-link nav-link-active">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  Chat
-                </span>
-                <Link href="/generate" className="nav-link">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                  </svg>
-                  UI Generator
-                </Link>
-                <Link href="/test-3dmol" className="nav-link">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  3D Molecules
-                </Link>
+    <AppLayout>
+      {/* Main Chat Interface */}
+      <div className="flex flex-col h-full">
+        {/* Simplified Top Bar */}
+        <div className="bg-gray-900/50 border-b border-gray-800/50 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <h1 className="text-lg font-semibold text-white">STEM AI Assistant</h1>
+              <div className="flex items-center space-x-2 text-sm text-gray-400">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span>Connected</span>
               </div>
             </div>
-
-            {/* Right side controls */}
-            <div className="flex items-center space-x-4">
-              <FileUploader onUpload={handleFileUploadCallback} isUploading={isUploading} disabled={isLoading} />
-              <ModelSelector selectedModel={selectedModel} onModelChange={handleModelChange} disabled={isLoading}/>
+            
+            <div className="flex items-center space-x-3">
               <Button 
                 variant="secondary" 
                 size="sm"
@@ -289,10 +388,7 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
             </div>
           </div>
         </div>
-      </nav>
 
-      {/* Main Chat Interface */}
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {/* Error State */}
@@ -319,30 +415,44 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
             {/* Chat Messages */}
             <ChatMessages messages={messages} />
 
-            {/* Loading State */}
+            {/* Enhanced Loading State with TypingIndicator */}
             {isLoading && messages[messages.length -1]?.role === 'user' && (
-              <Card variant="glass" className="mt-6">
-                <div className="flex items-center justify-center space-x-3 py-6">
-                  <div className="relative">
-                    <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 w-8 h-8 bg-blue-500/10 rounded-full blur-sm"></div>
-                  </div>
-                  <div>
-                    <Typography variant="small" className="text-blue-300 font-medium">
-                      AI is thinking...
-                    </Typography>
-                    <Typography variant="muted" className="text-xs">
-                      Processing your request with {selectedModel}
-                    </Typography>
-                  </div>
+              <div className="flex justify-start mr-8 mt-6">
+                <div className="max-w-3xl w-full">
+                  <Card variant="enhanced" className="hover:shadow-xl hover:shadow-blue-500/10">
+                    {/* Message Header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
+                        </div>
+                        <Typography variant="small" className="font-semibold text-blue-400">
+                          AI Assistant
+                        </Typography>
+                      </div>
+                      <Typography variant="muted" className="text-xs text-gray-500">
+                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
+                    </div>
+                    
+                    {/* Enhanced Typing Indicator */}
+                    <div className="py-4">
+                      <TypingIndicator className="mb-2" />
+                      <Typography variant="muted" className="text-xs text-gray-500">
+                        Processing with {selectedModel}...
+                      </Typography>
+                    </div>
+                  </Card>
                 </div>
-              </Card>
+              </div>
             )}
           </div>
         </main>
 
         {/* Enhanced Chat Input Footer */}
-        <footer className="sticky bottom-0 z-10 glass border-t border-gray-800/50">
+        <footer className="border-t border-gray-800/50 bg-gray-900/50">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <ChatInput 
               input={input} 
@@ -352,12 +462,12 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
               reload={reload}
               stop={stop}
               disabled={isUploading}
+              selectedModel={selectedModel}
+              onModelChange={handleModelChange}
+              onFileUpload={handleFileUploadCallback}
+              isUploading={isUploading}
             />
-            <div className="flex items-center justify-between mt-3 text-xs">
-              <Typography variant="muted" className="flex items-center space-x-2">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                <span>Model: {selectedModel}</span>
-              </Typography>
+            <div className="flex items-center justify-center mt-3 text-xs">
               <Typography variant="muted">
                 AI can make mistakes. Consider checking important information.
               </Typography>
@@ -365,6 +475,6 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
           </div>
         </footer>
       </div>
-    </div>
+    </AppLayout>
   );
 } 

@@ -50,6 +50,12 @@
     --gray-900: 240 6% 10%;
     --gray-925: 240 8% 8%;
     --gray-950: 240 10% 3.9%;
+
+    /* Tool-specific color variables */
+    --tool-molecule3d-color: #10B981;
+    --tool-plotly-color: #3B82F6;
+    --tool-ocr-color: #8B5CF6;
+    --tool-physics-color: #F59E0B;
   }
 }
 
@@ -114,6 +120,51 @@
     content: '';
     @apply absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/5 to-transparent 
            translate-x-[-100%] transition-transform duration-1000 ease-out;
+  }
+
+  /* Performance-optimized tool result styles */
+  .tool-result-card {
+    /* CSS containment for performance isolation */
+    contain: layout style paint;
+    
+    /* Content visibility for off-screen optimization */
+    content-visibility: auto;
+    
+    /* Hardware acceleration */
+    transform: translateZ(0);
+    will-change: transform, opacity;
+    
+    /* Efficient backdrop blur */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    
+    /* Smooth transitions using only transform and opacity */
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+  }
+  
+  .tool-result-card:hover {
+    transform: translateZ(0) scale(1.01);
+  }
+  
+  /* CSS containment classes for performance */
+  .contain-layout {
+    contain: layout;
+  }
+  
+  .contain-style {
+    contain: style;
+  }
+  
+  .contain-paint {
+    contain: paint;
+  }
+  
+  .contain-size {
+    contain: size;
+  }
+  
+  .contain-strict {
+    contain: strict;
   }
   
   /* Typography enhancements */
@@ -190,6 +241,20 @@
   }
 }
 
+/* Skeleton loading animations */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
 /* Code syntax highlighting */
 .hljs-keyword,
 .hljs-selector-tag,
@@ -198,63 +263,65 @@
 .hljs-doctag,
 .hljs-name,
 .hljs-strong {
-  @apply text-blue-400;
+  color: #c678dd;
 }
+
 .hljs-built_in,
-.hljs-type,
-.hljs-class {
-  @apply text-green-400;
+.hljs-builtin-name {
+  color: #e06c75;
 }
+
 .hljs-attribute,
-.hljs-symbol,
-.hljs-bullet,
-.hljs-addition {
-  @apply text-yellow-400;
+.hljs-variable,
+.hljs-template-variable {
+  color: #d19a66;
 }
+
 .hljs-string,
-.hljs-char,
-.hljs-attr,
-.hljs-regex {
-  @apply text-amber-400;
+.hljs-quote {
+  color: #98c379;
 }
+
 .hljs-comment,
-.hljs-quote,
-.hljs-deletion {
-  @apply text-gray-500;
+.hljs-meta {
+  color: #5c6370;
 }
+
 .hljs-number,
-.hljs-boolean,
-.hljs-literal {
-  @apply text-purple-400;
+.hljs-literal,
+.hljs-symbol {
+  color: #d19a66;
 }
 
-/* Split pane resizer */
+/* Scrollbar styling */
 .resizer {
-  @apply bg-gray-800 hover:bg-blue-500 transition-colors;
-  width: 4px;
-  cursor: col-resize;
-  z-index: 10;
+  background: #374151;
+  opacity: 0.3;
+  z-index: 1;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-/* Enhanced scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-900;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full;
+  background: #4b5563;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-600;
+  background: #6b7280;
 }
 
-/* Math styling */
+/* KaTeX styling */
 .katex-display {
   margin: 1em 0;
   text-align: center;
@@ -264,36 +331,35 @@
   font-size: 1.1em;
 }
 
-/* Enhanced prose styling for markdown */
 .prose .katex-display {
-  margin: 1.5em auto;
+  margin: 1.5em 0;
 }
 
 .prose code {
-  @apply bg-gray-800 text-gray-100 px-1.5 py-0.5 rounded text-sm border border-gray-700;
+  @apply bg-gray-800 text-gray-200 px-1.5 py-0.5 rounded text-sm;
 }
 
 .prose pre {
-  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto border border-gray-700;
+  @apply bg-gray-900 border border-gray-700;
 }
 
 .prose blockquote {
-  @apply border-l-4 border-blue-500 pl-4 italic bg-gray-800/30 py-2 rounded-r;
+  @apply border-l-blue-500 bg-blue-500/5 text-gray-300;
 }
 
 .prose table {
-  @apply border-collapse border border-gray-600 rounded-lg overflow-hidden;
+  @apply border-gray-700;
 }
 
 .prose th, .prose td {
-  @apply border border-gray-600 px-4 py-3;
+  @apply border-gray-700;
 }
 
 .prose th {
-  @apply bg-gray-800 font-semibold text-gray-100;
+  @apply bg-gray-800 text-gray-200;
 }
 
 .prose td {
-  @apply bg-gray-900/50;
+  @apply text-gray-300;
 }
 

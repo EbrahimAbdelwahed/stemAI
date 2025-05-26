@@ -1,20 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useChat, Message } from '@ai-sdk/react';
+import { useChat } from '@ai-sdk/react';
 import SplitPane from '../../components/SplitPane';
 import NavBar from '../../components/NavBar';
 import EnhancedChatInput from '../../components/EnhancedChatInput';
 import ConversationView from '../../components/ConversationView';
 import CodePreview from '../../components/CodePreview';
+import { RealDataCollector } from '../../lib/analytics/real-data-collector';
 
-type ModelType = 'grok-3-mini' | 'gemini-2-flash';
+type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest';
 
 export default function GeneratePage() {
   const [selectedModel, setSelectedModel] = useState<ModelType>('grok-3-mini');
   const [generatedCode, setGeneratedCode] = useState<string>('');
   const [generatedJSX, setGeneratedJSX] = useState<string>('');
-  const [componentName, setComponentName] = useState<string>('');
+  // Component name is tracked in componentsGenerated array
+  const [sessionStartTime] = useState<number>(Date.now());
+  const realDataCollector = RealDataCollector.getInstance();
   const [componentsGenerated, setComponentsGenerated] = useState<{
     name: string;
     code: string;
@@ -58,36 +61,78 @@ export default function GeneratePage() {
         const result = toolCall.result as any;
         setGeneratedCode(result.jsx || '');
         setGeneratedJSX(result.jsx || '');
-        setComponentName(result.componentName || 'Component');
         
+        const newComponent = {
+          name: result.componentName || 'Component',
+          code: result.jsx || '',
+          jsx: result.jsx,
+          timestamp: result.timestamp || new Date().toISOString()
+        };
         // Add to generated components
-        setComponentsGenerated(prev => [
-          {
-            name: result.componentName || 'Component',
-            code: result.jsx || '',
-            jsx: result.jsx,
-            timestamp: result.timestamp || new Date().toISOString()
-          },
-          ...prev
-        ]);
+        setComponentsGenerated(prev => [ newComponent, ...prev]);
+
+        // Track UI generation success
+        realDataCollector.storeUserEvent('ui_generation_completed', {
+          component_name: newComponent.name,
+          code_length: newComponent.code.length,
+          model: selectedModel,
+          session_duration: Date.now() - sessionStartTime,
+          request_message_id: message.id
+        }, '/generate');
+      } else {
+        // Track UI generation failure or non-tool response
+        realDataCollector.storeUserEvent('ui_generation_failed', {
+          model: selectedModel,
+          error_message: message.content || 'No tool result found',
+          session_duration: Date.now() - sessionStartTime,
+          request_message_id: message.id
+        }, '/generate');
       }
     }
   });
 
+  useEffect(() => {
+    // Track page view for generate page
+    realDataCollector.storePageView('/generate', document.referrer, navigator.userAgent);
+    // Track session start
+    realDataCollector.storeUserEvent('generate_session_started', {
+      model: selectedModel,
+      start_time: sessionStartTime
+    }, '/generate');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleModelChange = (model: ModelType) => {
-    setSelectedModel(model);
-    
+    const previousModel = selectedModel;
     // Add a system message announcing the model change
     append({
       id: Date.now().toString(),
       role: 'assistant',
       content: `Switching to ${model === 'grok-3-mini' ? 'Grok-3-Mini' : 'Gemini 2.0 Flash'} model. Describe a component you want me to create.`
     });
+
+    // Track model change event
+    realDataCollector.storeUserEvent('generate_model_changed', {
+      new_model: model,
+      previous_model: previousModel, // Use the captured previousModel
+      session_duration: Date.now() - sessionStartTime,
+      conversation_length: messages.length
+    }, '/generate');
+    setSelectedModel(model); // Correctly set the new model
   };
 
   const handleNewChat = () => {
     if (messages.length > 1) {
       if (window.confirm('Start a new design session? This will clear the current conversation.')) {
+        // Track old session end
+        realDataCollector.storeUserEvent('generate_session_ended', {
+          model: selectedModel,
+          session_duration: Date.now() - sessionStartTime,
+          components_generated_count: componentsGenerated.length,
+          conversation_length: messages.length,
+          end_reason: 'user_cleared'
+        }, '/generate');
+        
         setMessages([{
           id: 'welcome',
           role: 'assistant',
@@ -95,7 +140,15 @@ export default function GeneratePage() {
         }]);
         setGeneratedCode('');
         setGeneratedJSX('');
-        setComponentName('');
+        setComponentsGenerated([]); // Clear generated components
+        // Potentially reset sessionStartTime here if a new session implies a new start time for duration calculations.
+        // For now, we'll assume sessionStartTime is for the entire page lifecycle.
+
+        // Track new session start
+        realDataCollector.storeUserEvent('generate_session_started', {
+          model: selectedModel, // Model might have changed, so use current selectedModel
+          start_time: Date.now() // Use current time for new session
+        }, '/generate');
       }
     }
   };

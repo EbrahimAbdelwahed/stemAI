@@ -7,6 +7,16 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { searchDocumentsOptimized, detectSimpleQuery } from '../../../lib/ai/optimized-documents';
 import { visualizationTools } from './visualization_tools';
+import { trackAPIPerformanceDetailed } from '../../../lib/analytics/api-performance-middleware';
+import { auth } from '@/auth';
+import { 
+  createConversation, 
+  saveMessage, 
+  generateConversationTitle,
+  getConversationById,
+  saveToolInvocation
+} from '@/lib/db/conversations';
+import { saveToLocalStorage } from '@/lib/chat/migration';
 
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
@@ -191,14 +201,41 @@ IMPORTANT:
         system: `${baseSystem}\n\nYou are powered by GPT-4o.`,
       };
     default:
+      // For Grok models that don't support native tool calling, we use special tokens
+      const grokSystem = baseSystem.replace(
+        'Do NOT generate text tokens like [NEEDS_VISUALIZATION]. Instead, directly call the tool.',
+        'Since you do not support native tool calling, you MUST use special text tokens for visualizations and tools.'
+      );
+      
       return {
         model: xai('grok-3-mini'),
-        system: `${baseSystem}\n\nYou are powered by Grok-3-Mini with reasoning capabilities.`,
+        system: `${grokSystem}\n\nYou are powered by Grok-3-Mini with reasoning capabilities.
+
+## SPECIAL TOKEN SYSTEM FOR VISUALIZATIONS
+
+Since you do not support native function calling, use these special text tokens:
+
+**For 3D Molecular Visualization:**
+[NEEDS_VISUALIZATION:{"type":"molecule3D","identifier":"SMILES_OR_PDB_ID","identifierType":"smiles_or_pdb","description":"Brief description"}]
+
+**For 2D Function Plotting:**
+[NEEDS_VISUALIZATION:{"type":"plot2D","functionString":"sin(x)","variable":{"name":"x","range":[-3.14,3.14]},"title":"Plot Title"}]
+
+**For 3D Function Plotting:**
+[NEEDS_VISUALIZATION:{"type":"plot3D","functionString":"sin(x)*cos(y)","variables":[{"name":"x","range":[-5,5]},{"name":"y","range":[-5,5]}],"title":"3D Plot Title"}]
+
+**For Physics Simulations:**
+[NEEDS_VISUALIZATION:{"type":"physics","simulationType":"collision_demo","metadata":{"title":"Physics Demo","description":"Description"}}]
+
+**For Custom Charts:**
+[NEEDS_VISUALIZATION:{"type":"plotly","data":[{"x":[1,2,3],"y":[1,4,9],"type":"scatter"}],"title":"Chart Title"}]
+
+IMPORTANT: Always use these exact token formats when users request visualizations, molecular structures, plots, or physics simulations. The system will automatically convert these tokens into interactive visualizations.`,
       };
   }
 }
 
-export function errorHandler(error: unknown): string {
+function errorHandler(error: unknown): string {
   if (error == null) {
     return 'Unknown error';
   }
@@ -216,17 +253,175 @@ export function errorHandler(error: unknown): string {
   }
 }
 
-export async function POST(req: NextRequest) {
+// Helper function for comprehensive tool signal extraction
+function extractAllToolSignals(text: string): Array<{pattern: string, match: string, fullMatch: string}> {
+  const signals = [];
+  const patterns = [
+    /\[NEEDS_VISUALIZATION:({.*?})\]/g,
+    /displayMolecule3D\([^)]*\)/g,
+    /plotFunction[23]D\([^)]*\)/g,
+    /displayPlotlyChart\([^)]*\)/g,
+    /displayPhysicsSimulation\([^)]*\)/g,
+    /performOCR\([^)]*\)/g
+  ];
+  
+  for (const pattern of patterns) {
+    const matches = [...text.matchAll(pattern)];
+    signals.push(...matches.map(m => ({ 
+      pattern: pattern.source, 
+      match: m[0],
+      fullMatch: m[1] || m[0] // Extract JSON content if available
+    })));
+  }
+  
+  return signals;
+}
+
+// Enhanced function to detect tool signals during streaming
+function detectEarlyToolSignals(token: string) {
+  const detectedSignals = [];
+  
+  // Pattern 1: [NEEDS_VISUALIZATION:{...}] format
+  if (token.includes('[NEEDS_VISUALIZATION')) {
+    const visualizationPattern = /\[NEEDS_VISUALIZATION:({.*?})\]/;
+    const match = token.match(visualizationPattern);
+    if (match) {
+      try {
+        const signal = JSON.parse(match[1]);
+        detectedSignals.push({
+          type: 'needs_visualization',
+          signal,
+          rawMatch: match[0]
+        });
+      } catch (err) {
+        console.warn('[Early Tool Detection] Failed to parse NEEDS_VISUALIZATION signal:', err);
+      }
+    }
+  }
+
+  // Pattern 2: Direct tool function calls
+  const toolPatterns = [
+    { name: 'displayMolecule3D', pattern: /displayMolecule3D.*?identifier["\s]*:["\s]*([^"}\s,]+)/ },
+    { name: 'plotFunction2D', pattern: /plotFunction2D.*?functionString["\s]*:["\s]*([^"}\s,]+)/ },
+    { name: 'plotFunction3D', pattern: /plotFunction3D.*?functionString["\s]*:["\s]*([^"}\s,]+)/ },
+    { name: 'displayPlotlyChart', pattern: /displayPlotlyChart/ },
+    { name: 'displayPhysicsSimulation', pattern: /displayPhysicsSimulation.*?simulationType["\s]*:["\s]*([^"}\s,]+)/ },
+    { name: 'performOCR', pattern: /performOCR/ }
+  ];
+
+  for (const { name, pattern } of toolPatterns) {
+    if (pattern.test(token)) {
+      const match = token.match(pattern);
+      detectedSignals.push({
+        type: 'tool_function_call',
+        toolName: name,
+        rawMatch: match ? match[0] : token,
+        extractedParam: match && match[1] ? match[1] : undefined
+      });
+    }
+  }
+
+  return detectedSignals;
+}
+
+async function chatHandler(req: NextRequest): Promise<Response> {
   const body = await req.json();
+  
+  // Add debugging to understand the request structure
+  console.log('[Chat API] Raw request body keys:', Object.keys(body));
+  console.log('[Chat API] Raw request body:', JSON.stringify(body, null, 2));
+  
   const { 
     messages, 
     model: modelId = 'grok-3-mini',
     mode = 'chat',
+    conversationId,
   }: { 
     messages: CoreMessage[], 
     model?: string, 
     mode?: 'chat' | 'generate',
+    conversationId?: string,
   } = body;
+
+  // Add validation for messages
+  if (!messages) {
+    console.error('[Chat API] Messages is undefined or null:', messages);
+    return new Response(JSON.stringify({ 
+      error: 'Messages array is required but was not provided' 
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!Array.isArray(messages)) {
+    console.error('[Chat API] Messages is not an array:', typeof messages, messages);
+    return new Response(JSON.stringify({ 
+      error: 'Messages must be an array' 
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (messages.length === 0) {
+    console.error('[Chat API] Messages array is empty');
+    return new Response(JSON.stringify({ 
+      error: 'Messages array cannot be empty' 
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log('[Chat API] Messages structure:', messages.map(m => ({ role: m.role, hasContent: !!m.content })));
+
+  // Get authentication session
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  // Handle conversation persistence
+  let currentConversationId = conversationId;
+  let isNewConversation = false;
+
+  // If we have a user and no conversation ID, create a new conversation
+  if (userId && !currentConversationId && messages.length > 0) {
+    try {
+      // Convert CoreMessage to Message format for title generation
+      const messagesForTitle = messages.map((msg, index) => ({
+        id: `temp-${index}`,
+        role: msg.role,
+        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+        createdAt: new Date()
+      }));
+      const title = generateConversationTitle(messagesForTitle as any);
+      const conversation = await createConversation({
+        userId,
+        title,
+        model: modelId
+      });
+      currentConversationId = conversation.id;
+      isNewConversation = true;
+      console.log('[Chat API] Created new conversation:', currentConversationId);
+    } catch (error) {
+      console.error('[Chat API] Failed to create conversation:', error);
+      // Continue without persistence - will fall back to localStorage
+    }
+  }
+
+  // If we have a conversation ID, verify access
+  if (currentConversationId && userId) {
+    try {
+      const conversation = await getConversationById(currentConversationId, userId);
+      if (!conversation) {
+        console.warn('[Chat API] Conversation not found or access denied:', currentConversationId);
+        currentConversationId = undefined;
+      }
+    } catch (error) {
+      console.error('[Chat API] Error verifying conversation access:', error);
+      currentConversationId = undefined;
+    }
+  }
 
   const lastUserMessage = messages
     .filter((message: CoreMessage) => message.role === 'user')
@@ -274,7 +469,7 @@ export async function POST(req: NextRequest) {
     const result = await streamText({
       model: modelConfig.model,
       system: systemPromptWithContext,
-      messages,
+      messages: messages,
       maxSteps: mode === 'generate' ? 5 : 3,
       tools: mode === 'generate' ? { 
         generateReactComponent: {
@@ -289,32 +484,173 @@ export async function POST(req: NextRequest) {
           }
         }
       } : visualizationTools,
-      onFinish: ({ text, toolCalls, toolResults, finishReason, usage }) => {
-        console.log('[onFinish] ===== STREAM FINISHED =====');
-        console.log('[onFinish] Finish Reason:', finishReason);
-        console.log('[onFinish] Usage:', usage);
-        console.log('[onFinish] Text:', text?.substring(0, 200) + (text?.length > 200 ? '...' : ''));
-        console.log('[onFinish] Tool Calls Count:', toolCalls?.length || 0);
+      
+      // NEW: Real-time chunk processing for early tool detection
+      onChunk: async ({ chunk }) => {
+        try {
+          // Early tool signal detection during streaming
+          if (chunk.type === 'text-delta' && chunk.textDelta) {
+            const detectedSignals = detectEarlyToolSignals(chunk.textDelta);
+            
+            if (detectedSignals.length > 0) {
+              console.log('[Enhanced Streaming] Early tool signals detected:', detectedSignals);
+              // Note: Early detection for potential optimizations
+              // The actual tool processing happens in onStepFinish and onFinish
+            }
+          }
+          
+          // Handle tool call streaming chunks
+          if (chunk.type === 'tool-call-streaming-start') {
+            console.log('[Enhanced Streaming] Tool call started:', chunk);
+          }
+          
+          if (chunk.type === 'tool-call-delta') {
+            console.log('[Enhanced Streaming] Tool call delta:', chunk);
+          }
+        } catch (err) {
+          console.error('[Enhanced Streaming] Error in onChunk processing:', err);
+        }
+      },
+      
+      // ENHANCED: Step completion handling for multi-step flows
+      onStepFinish: async ({ stepType, finishReason, usage, text, toolCalls, toolResults }) => {
+        console.log('[Enhanced onStepFinish] Step completed:', {
+          stepType,
+          finishReason,
+          usage,
+          toolCallsCount: toolCalls?.length || 0,
+          toolResultsCount: toolResults?.length || 0,
+          textLength: text?.length || 0
+        });
+        
         if (toolCalls && toolCalls.length > 0) {
-          console.log('[onFinish] Tool Calls:', JSON.stringify(toolCalls, null, 2));
+          console.log('[Enhanced onStepFinish] Tool calls in this step:', toolCalls.length, 'calls');
         }
-        if (toolResults && toolResults.length > 0) {
-          console.log('[onFinish] Tool Results:', JSON.stringify(toolResults, null, 2));
+      },
+      
+      // ENHANCED: Final completion handling
+      onFinish: async ({ text, toolCalls, toolResults, finishReason, usage, steps }) => {
+        try {
+          console.log('[Enhanced onFinish] ===== STREAM FINISHED =====');
+          console.log('[Enhanced onFinish] Finish Reason:', finishReason);
+          console.log('[Enhanced onFinish] Usage:', usage);
+          console.log('[Enhanced onFinish] Text:', text?.substring(0, 200) + (text?.length > 200 ? '...' : ''));
+          console.log('[Enhanced onFinish] Tool Calls Count:', toolCalls?.length || 0);
+          console.log('[Enhanced onFinish] Steps Count:', steps?.length || 0);
+          
+          // Save conversation to database if authenticated
+          if (currentConversationId && userId && text) {
+            try {
+              // Save the user's last message first (if not already saved)
+              const lastUserMsg = messages[messages.length - 1];
+              if (lastUserMsg && lastUserMsg.role === 'user') {
+                await saveMessage({
+                  conversationId: currentConversationId,
+                  role: 'user',
+                  content: typeof lastUserMsg.content === 'string' ? lastUserMsg.content : JSON.stringify(lastUserMsg.content),
+                  parts: Array.isArray(lastUserMsg.content) ? lastUserMsg.content : undefined,
+                  metadata: { timestamp: new Date().toISOString() }
+                });
+              }
+
+              // Save the assistant's response
+              const assistantMessage = await saveMessage({
+                conversationId: currentConversationId,
+                role: 'assistant',
+                content: text,
+                tokenUsage: usage,
+                metadata: { 
+                  finishReason,
+                  stepCount: steps?.length,
+                  timestamp: new Date().toISOString()
+                }
+              });
+
+              // Save tool invocations if any
+              if (toolCalls && toolCalls.length > 0 && assistantMessage) {
+                for (let i = 0; i < toolCalls.length; i++) {
+                  const toolCall = toolCalls[i] as any;
+                  const toolResult = toolResults?.[i] as any;
+                  
+                  await saveToolInvocation({
+                    messageId: assistantMessage.id,
+                    toolName: toolCall.toolName || toolCall.name || 'unknown',
+                    parameters: toolCall.args || toolCall.parameters,
+                    result: toolResult?.result,
+                    executionTime: toolResult?.executionTime
+                  });
+                }
+              }
+
+              console.log('[Enhanced onFinish] Saved conversation to database:', currentConversationId);
+            } catch (dbError) {
+              console.error('[Enhanced onFinish] Error saving to database:', dbError);
+              // Fall back to localStorage for anonymous users
+              if (!userId) {
+                try {
+                  const allMessages = [...messages, { 
+                    id: `msg-${Date.now()}`, 
+                    role: 'assistant', 
+                    content: text,
+                    createdAt: new Date()
+                  }];
+                  saveToLocalStorage(currentConversationId || `chat-${Date.now()}`, allMessages as any);
+                  console.log('[Enhanced onFinish] Saved to localStorage as fallback');
+                } catch (lsError) {
+                  console.error('[Enhanced onFinish] Error saving to localStorage:', lsError);
+                }
+              }
+            }
+          }
+          
+          // Process completed tool calls
+          if (toolCalls && toolCalls.length > 0) {
+            console.log('[Enhanced onFinish] Processing tool calls:', JSON.stringify(toolCalls, null, 2));
+          }
+          
+          if (toolResults && toolResults.length > 0) {
+            console.log('[Enhanced onFinish] Tool Results:', JSON.stringify(toolResults, null, 2));
+          }
+          
+          // Final text processing for any missed signals
+          if (text) {
+            const finalSignals = extractAllToolSignals(text);
+            if (finalSignals.length > 0) {
+              console.log('[Enhanced onFinish] Final tool signals found:', finalSignals);
+            }
+          }
+          
+          console.log('[Enhanced onFinish] Available Tools:', Object.keys(visualizationTools));
+        } catch (error) {
+          console.error('[Enhanced onFinish] Error in enhanced onFinish:', error);
         }
-        console.log('[onFinish] Available Tools:', Object.keys(visualizationTools));
       }
     });
 
-    return result.toDataStreamResponse({ 
+    const response = result.toDataStreamResponse({ 
       getErrorMessage: errorHandler 
     });
 
+    // Add conversation ID to response headers if available
+    if (currentConversationId) {
+      response.headers.set('X-Conversation-Id', currentConversationId);
+    }
+    if (isNewConversation) {
+      response.headers.set('X-New-Conversation', 'true');
+    }
+
+    return response;
+
   } catch (error) {
-    console.error('Error in streamText call or its setup:', error);
+    console.error('Error in enhanced streamText call:', error);
+    
     const message = errorHandler(error);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
-} 
+}
+
+// Export the wrapped handler with performance tracking
+export const POST = trackAPIPerformanceDetailed(chatHandler); 

@@ -113,7 +113,7 @@ export const plotFunction2D = tool({
       .describe("The mathematical function to plot using math.js syntax, e.g., 'sin(x)', 'x^2', 'log(x)', 'exp(x)'."),
     variable: z.object({
       name: z.string().describe("Name of the variable, typically 'x'."),
-      range: z.tuple([z.number(), z.number()]).describe("Range [min, max] for the variable.")
+      range: z.array(z.number()).length(2).describe("Range [min, max] for the variable as an array of two numbers.")
     }).describe("The variable definition with name and range."),
     plotType: z.enum(['line', 'scatter']).default('line')
       .describe("Type of 2D plot: 'line' for continuous curves, 'scatter' for discrete points."),
@@ -154,7 +154,7 @@ export const plotFunction3D = tool({
       .describe("The mathematical function to plot using math.js syntax, e.g., 'sin(x) * cos(y)', 'x^2 + y^2', 'exp(-(x^2 + y^2))'."),
     variables: z.array(z.object({
       name: z.string().describe("Name of the variable, typically 'x' or 'y'."),
-      range: z.tuple([z.number(), z.number()]).describe("Range [min, max] for the variable.")
+      range: z.array(z.number()).length(2).describe("Range [min, max] for the variable as an array of two numbers.")
     })).length(2).describe("Array of exactly 2 variables with their names and ranges."),
     plotType: z.enum(['surface', 'contour']).default('surface')
       .describe("Type of 3D plot: 'surface' for 3D surface plots, 'contour' for contour plots."),

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-type ModelType = 'grok-3-mini' | 'gemini-2-flash' | 'gpt-4o' | 'claude-3-haiku';
+type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307';
 
 interface ModelSelectorProps {
   selectedModel: ModelType;
@@ -23,8 +23,8 @@ const models = [
     )
   },
   { 
-    id: 'gemini-2-flash', 
-    name: 'Gemini 2.0', 
+    id: 'gemini-1.5-flash-latest', 
+    name: 'Gemini 1.5 Flash', 
     description: 'Advanced Google AI model',
     tag: 'Flash',
     performance: 'Balanced',
@@ -51,7 +51,7 @@ const models = [
     )
   },
   { 
-    id: 'claude-3-haiku', 
+    id: 'claude-3-haiku-20240307', 
     name: 'Claude 3 Haiku', 
     description: 'Anthropic\'s fast and capable model',
     tag: 'Fast',
