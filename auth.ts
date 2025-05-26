@@ -3,9 +3,10 @@ import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import authConfig from "./auth.config"
 import { db } from "@/lib/db"
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(db),
-  session: { strategy: "jwt" },
+// Only use DrizzleAdapter if database is available
+const authOptions = {
+  ...(db ? { adapter: DrizzleAdapter(db) } : {}),
+  session: { strategy: "jwt" as const },
   ...authConfig,
   callbacks: {
     session({ session, token }) {
@@ -21,4 +22,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token
     },
   },
-}) 
+}
+
+export const { handlers, auth, signIn, signOut } = NextAuth(authOptions) 

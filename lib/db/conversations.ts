@@ -7,6 +7,7 @@ export interface ConversationData {
   userId?: string
   title: string
   model: string
+  isArchived?: boolean
 }
 
 export interface MessageData {

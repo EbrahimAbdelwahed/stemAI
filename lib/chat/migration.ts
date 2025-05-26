@@ -117,17 +117,24 @@ export async function migrateLocalStorageChats(userId: string): Promise<{
         model: chat.model || 'gpt-4o'
       })
 
-      // Save all messages for this conversation
+      // Save all messages for this conversation (filter out unsupported roles)
       for (const message of chat.messages) {
+        // Skip messages with unsupported roles (like "data" from tool results)
+        if (message.role !== 'user' && message.role !== 'assistant' && message.role !== 'system') {
+          console.log(`Skipping message with unsupported role: ${message.role}`)
+          continue
+        }
+
         await saveMessage({
           conversationId: conversation.id,
-          role: message.role,
+          role: message.role as 'user' | 'assistant' | 'system',
           content: typeof message.content === 'string' ? message.content : JSON.stringify(message.content),
           parts: Array.isArray(message.content) ? message.content : undefined,
           metadata: { 
             migratedFromLocalStorage: true,
             originalChatId: chat.id,
-            originalTimestamp: chat.timestamp
+            originalTimestamp: chat.timestamp,
+            originalRole: message.role // Store original role for reference
           }
         })
       }
