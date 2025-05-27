@@ -359,9 +359,9 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
   return (
     <AppLayout>
       {/* Main Chat Interface */}
-      <div className="flex flex-col h-full">
-        {/* Simplified Top Bar */}
-        <div className="bg-gray-900/50 border-b border-gray-800/50 px-6 py-3">
+      <div className="flex flex-col h-screen">
+        {/* Sticky Top Bar */}
+        <div className="sticky top-0 z-50 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800/50 px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <h1 className="text-lg font-semibold text-white">STEM AI Assistant</h1>
@@ -451,8 +451,8 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
           </div>
         </main>
 
-        {/* Enhanced Chat Input Footer */}
-        <footer className="border-t border-gray-800/50 bg-gray-900/50">
+        {/* Sticky Chat Input Footer */}
+        <footer className="sticky bottom-0 z-50 border-t border-gray-800/50 bg-gray-900/95 backdrop-blur-sm">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <ChatInput 
               input={input} 

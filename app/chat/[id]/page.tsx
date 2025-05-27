@@ -269,8 +269,8 @@ export default function ConversationPage() {
   return (
     <AppLayout currentConversationId={conversationId}>
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Header */}
-        <div className="flex-shrink-0 border-b border-gray-800/50 bg-neutral-900/50 backdrop-blur-sm">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-50 border-b border-gray-800/50 bg-neutral-900/95 backdrop-blur-sm">
           <div className="flex items-center justify-between px-6 py-4">
             <div>
               <h1 className="text-lg font-semibold text-white truncate max-w-md">
@@ -303,14 +303,14 @@ export default function ConversationPage() {
         </div>
 
                  {/* Messages Area */}
-         <div className="flex-1 overflow-hidden">
+         <div className="flex-1 overflow-y-auto">
            <ChatMessages 
              messages={messages}
            />
          </div>
 
-         {/* Input Area */}
-         <div className="flex-shrink-0 border-t border-gray-800/50 bg-neutral-900/50 backdrop-blur-sm">
+         {/* Sticky Input Area */}
+         <div className="sticky bottom-0 z-50 border-t border-gray-800/50 bg-neutral-900/95 backdrop-blur-sm">
            <div className="p-6">
              <ChatInput
                input={input}

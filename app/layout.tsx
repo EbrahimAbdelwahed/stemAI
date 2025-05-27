@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider';
 import { SessionProvider } from '@/components/providers/SessionProvider';
+import { getClientAnalyticsConfig, shouldEnableAnalytics, logAnalyticsConfig } from '@/lib/analytics/vercel-config';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -12,6 +13,11 @@ export const metadata: Metadata = {
   title: 'STEM AI Assistant',
   description: 'AI assistant for STEM topics with RAG capabilities',
 };
+
+// Log analytics configuration in development
+if (typeof window === 'undefined') {
+  logAnalyticsConfig();
+}
 
 export default function RootLayout({
   children,
@@ -26,7 +32,7 @@ export default function RootLayout({
             {children}
           </AnalyticsProvider>
         </SessionProvider>
-        <Analytics />
+        {shouldEnableAnalytics() && <Analytics {...getClientAnalyticsConfig()} />}
         <SpeedInsights />
       </body>
     </html>

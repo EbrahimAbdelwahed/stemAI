@@ -9,10 +9,9 @@ import OCRResult from './OCRResult';
 // import PlotlyPlotter from './visualizations/PlotlyPlotter'; // Keep if other tools are added soon
 import VisualizationErrorBoundary from './visualizations/VisualizationErrorBoundary';
 import CodePreview from './CodePreview';
-import { Card } from './ui/Card';
 import { Typography } from './ui/Typography';
-import ToolResultCard from './tool-results/ToolResultCard';
-import { ToolLoadingState, TypingIndicator, StreamingText } from './ui/LoadingStates';
+import { ToolLoadingState } from './ui/LoadingStates';
+import { StreamingMarkdown } from './ui/StreamingMarkdown';
 
 // Temporary direct import to fix chunk loading issue
 // TODO: Restore dynamic import after resolving chunk loading
@@ -177,16 +176,14 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                 <div className="pl-4 border-l-2 border-neutral-800">
                   <div className="prose prose-neutral max-w-none">
                     {message.role === 'assistant' && message.id === messages[messages.length - 1]?.id && index === messages.length - 1 ? (
-                      // This is the latest AI message - could be streaming
-                      <div className="space-y-2">
-                        <StreamingText 
-                          text={formatAndCleanContent(message.content)}
-                          className="text-neutral-200 leading-relaxed"
-                          speed={30}
-                        />
-                      </div>
+                      // This is the latest AI message - streaming with markdown
+                      <StreamingMarkdown 
+                        text={formatAndCleanContent(message.content)}
+                        className="text-neutral-200 leading-relaxed"
+                        speed={30}
+                      />
                     ) : (
-                      // Completed message - render with Markdown
+                      // Completed message - render with enhanced Markdown
                       <MarkdownRenderer 
                         content={formatAndCleanContent(message.content)}
                         className="break-words text-neutral-200 leading-relaxed"
