@@ -9,7 +9,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "prebuild": "echo 'Starting production build - test files will be ignored'",
+    "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "next lint"
   },

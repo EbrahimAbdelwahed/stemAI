@@ -32,19 +32,6 @@ const nextConfig = {
       'scheduler/tracing': 'scheduler/tracing-profiling',
     };
 
-    // Add module rules to ignore test files
-    config.module.rules.push({
-      test: /test\/.*$/,
-      loader: 'ignore-loader'
-    });
-
-    // Ignore patterns for test files
-    if (config.ignoreWarnings) {
-      config.ignoreWarnings.push(/test\/.*$/);
-    } else {
-      config.ignoreWarnings = [/test\/.*$/];
-    }
-
     // Optimize client-side bundles
     if (!isServer) {
       // Enhanced code splitting

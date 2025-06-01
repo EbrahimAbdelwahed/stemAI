@@ -5,5 +5,35 @@ env.local
 .next/
 .env.local
 
-# Test files (build-time dependencies)
-test/
+# Only exclude test files that are build artifacts or not needed
+*.test.log
+*.spec.log
+
+# Development and debug files
+debug/
+tmp/
+temp/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
