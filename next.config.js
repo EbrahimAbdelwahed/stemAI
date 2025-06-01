@@ -24,6 +24,27 @@ const nextConfig = {
   },
   // Enhanced webpack configuration
   webpack: (config, { dev, isServer }) => {
+    // CRITICAL: Exclude test files and directories from ALL modules
+    config.module.rules.push({
+      test: /node_modules.*\/test\/.*\.(js|ts|jsx|tsx|json|pdf)$/,
+      use: 'ignore-loader',
+    });
+    
+    config.module.rules.push({
+      test: /node_modules.*\/tests\/.*\.(js|ts|jsx|tsx|json|pdf)$/,
+      use: 'ignore-loader',
+    });
+    
+    config.module.rules.push({
+      test: /node_modules.*\/__tests__\/.*\.(js|ts|jsx|tsx|json|pdf)$/,
+      use: 'ignore-loader',
+    });
+    
+    config.module.rules.push({
+      test: /node_modules.*\/spec\/.*\.(js|ts|jsx|tsx|json|pdf)$/,
+      use: 'ignore-loader',
+    });
+
     // Exclude test files and directories from build
     config.resolve.alias = {
       ...config.resolve.alias,

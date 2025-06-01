@@ -51,7 +51,7 @@ export default function ChatPage() {
         if (tool.toolName === 'displayMolecule3D') tool_type = '3dmol';
         else if (tool.toolName === 'displayPhysicsSimulation') tool_type = 'physics';
         else if (tool.toolName === 'plotFunction2D' || tool.toolName === 'plotFunction3D' || tool.toolName === 'displayPlotlyChart') tool_type = 'plotly';
-        else if (tool.toolName.toLowerCase().includes('search') || tool.toolName.toLowerCase().includes('document')) tool_type = 'rag';
+        else if (tool.toolName.toLowerCase().includes('search') || tool.toolName.toLowerCase().includes('ookument')) tool_type = 'rag';
 
         realDataCollector.storeUserEvent('tool_invoked', {
           tool_name: tool.toolName,
@@ -289,11 +289,22 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
             }, '/chat');
           }
 
-                            } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            console.error(`File processing error for ${file.name}:`, error);
-            toast.error(`Processing failed for ${file.name}: ${errorMessage}`);
-            track('FileProcessingFailed', { fileName: file.name, error: errorMessage, fileType: isImage ? 'image' : 'document' });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          console.error(`File processing error for ${file.name}:`, error);
+          toast.error(`Processing failed for ${file.name}: ${errorMessage}`);
+          track('FileProcessingFailed', { fileName: file.name, error: errorMessage, fileType: isImage ? 'image' : 'document' });
+          
+          // Enhanced error tracking
+          realDataCollector.storeUserEvent('file_upload_failed', {
+            file_name: file.name,
+            file_size: file.size,
+            file_type: isImage ? 'image' : 'document',
+            error_message: errorMessage,
+            chatId: chatId,
+            model: selectedModel,
+            success: false
+          }, '/chat');
         }
       }
     };
