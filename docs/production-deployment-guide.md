@@ -570,3 +570,572 @@ Your production deployment is now complete! 🚀
 - Add more molecular data as needed
 - Implement user feedback collection
 - Plan for future scaling 
+
+## Appendix A: Inserting Complete Molecular Datasets
+
+### A.1 Data Sources for Molecular Information
+
+#### Option 1: PubChem Database (Recommended for Small Molecules)
+PubChem provides comprehensive chemical information with REST API access:
+
+```typescript
+// lib/data/pubchem-importer.ts
+interface PubChemCompound {
+  cid: number;
+  molecular_formula: string;
+  molecular_weight: number;
+  iupac_name: string;
+  synonyms: string[];
+  smiles: string;
+  description?: string;
+}
+
+export class PubChemImporter {
+  private readonly baseUrl = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug';
+  private readonly batchSize = 100;
+
+  async fetchCompoundsBatch(cids: number[]): Promise<PubChemCompound[]> {
+    const cidList = cids.join(',');
+    const url = `${this.baseUrl}/compound/cid/${cidList}/JSON`;
+    
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      return data.PC_Compounds.map((compound: any) => ({
+        cid: compound.id.id.cid,
+        molecular_formula: this.extractProperty(compound, 'Molecular Formula'),
+        molecular_weight: this.extractProperty(compound, 'Molecular Weight'),
+        iupac_name: this.extractProperty(compound, 'IUPAC Name'),
+        synonyms: this.extractSynonyms(compound),
+        smiles: this.extractProperty(compound, 'SMILES'),
+        description: this.extractProperty(compound, 'Description')
+      }));
+    } catch (error) {
+      console.error(`Error fetching compounds ${cidList}:`, error);
+      return [];
+    }
+  }
+
+  private extractProperty(compound: any, propertyName: string): string {
+    const props = compound.props || [];
+    const prop = props.find((p: any) => 
+      p.urn?.label === propertyName || p.urn?.name === propertyName
+    );
+    return prop?.value?.sval || prop?.value?.fval?.toString() || '';
+  }
+
+  private extractSynonyms(compound: any): string[] {
+    // Extract synonyms from compound data
+    const synonyms = compound.synonyms || [];
+    return synonyms.slice(0, 10); // Limit to first 10 synonyms
+  }
+}
+```
+
+#### Option 2: Protein Data Bank (PDB) for Protein Structures
+
+```typescript
+// lib/data/pdb-importer.ts
+interface PDBStructure {
+  pdb_id: string;
+  title: string;
+  molecular_formula: string;
+  molecular_weight: number;
+  organism: string;
+  resolution: number;
+  method: string;
+}
+
+export class PDBImporter {
+  private readonly baseUrl = 'https://data.rcsb.org/rest/v1/core';
+
+  async fetchStructureInfo(pdbId: string): Promise<PDBStructure | null> {
+    try {
+      const url = `${this.baseUrl}/entry/${pdbId}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      return {
+        pdb_id: pdbId.toUpperCase(),
+        title: data.struct?.title || 'Unknown',
+        molecular_formula: data.chem_comp?.formula || 'Unknown',
+        molecular_weight: data.exptl?.[0]?.details || 0,
+        organism: data.rcsb_entity_source_organism?.[0]?.ncbi_scientific_name || 'Unknown',
+        resolution: data.refine?.[0]?.ls_d_res_high || 0,
+        method: data.exptl?.[0]?.method || 'Unknown'
+      };
+    } catch (error) {
+      console.error(`Error fetching PDB ${pdbId}:`, error);
+      return null;
+    }
+  }
+
+  async fetchAllStructures(limit: number = 1000): Promise<string[]> {
+    // Get list of all PDB IDs
+    const url = 'https://data.rcsb.org/rest/v1/holdings/current/entry_ids';
+    const response = await fetch(url);
+    const pdbIds = await response.json();
+    return pdbIds.slice(0, limit);
+  }
+}
+```
+
+### A.2 Batch Import Strategy
+
+Create a comprehensive import script:
+
+```typescript
+// scripts/import-molecules.ts
+import { db } from '@/lib/db';
+import { molecules } from '@/lib/db/schema';
+import { PubChemImporter } from '@/lib/data/pubchem-importer';
+import { PDBImporter } from '@/lib/data/pdb-importer';
+import { OpenAI } from 'openai';
+
+interface ImportConfig {
+  pubchemCids?: number[];
+  pdbIds?: string[];
+  batchSize: number;
+  generateEmbeddings: boolean;
+  validateData: boolean;
+}
+
+export class MoleculeImporter {
+  private pubchem = new PubChemImporter();
+  private pdb = new PDBImporter();
+  private openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  async importDataset(config: ImportConfig) {
+    console.log('Starting molecular dataset import...');
+    
+    let totalImported = 0;
+    const startTime = Date.now();
+
+    try {
+      // Import PubChem compounds
+      if (config.pubchemCids?.length) {
+        totalImported += await this.importPubChemCompounds(
+          config.pubchemCids, 
+          config
+        );
+      }
+
+      // Import PDB structures
+      if (config.pdbIds?.length) {
+        totalImported += await this.importPDBStructures(
+          config.pdbIds, 
+          config
+        );
+      }
+
+      const duration = (Date.now() - startTime) / 1000;
+      console.log(`Import completed: ${totalImported} molecules in ${duration}s`);
+
+    } catch (error) {
+      console.error('Import failed:', error);
+      throw error;
+    }
+  }
+
+  private async importPubChemCompounds(cids: number[], config: ImportConfig): Promise<number> {
+    const batches = this.chunkArray(cids, config.batchSize);
+    let imported = 0;
+
+    for (const [index, batch] of batches.entries()) {
+      console.log(`Processing PubChem batch ${index + 1}/${batches.length}`);
+      
+      const compounds = await this.pubchem.fetchCompoundsBatch(batch);
+      
+      for (const compound of compounds) {
+        try {
+          if (config.validateData && !this.validatePubChemCompound(compound)) {
+            console.warn(`Skipping invalid compound CID ${compound.cid}`);
+            continue;
+          }
+
+          const embedding = config.generateEmbeddings 
+            ? await this.generateEmbedding(compound.iupac_name || `CID ${compound.cid}`)
+            : null;
+
+          await db.insert(molecules).values({
+            name: compound.iupac_name || `Compound ${compound.cid}`,
+            common_names: compound.synonyms,
+            pubchem_cid: compound.cid,
+            smiles_notation: compound.smiles,
+            molecular_formula: compound.molecular_formula,
+            molecular_weight: parseFloat(compound.molecular_weight.toString()),
+            description: compound.description,
+            structure_type: 'small_molecule',
+            source: 'pubchem',
+            embedding
+          }).onConflictDoNothing();
+
+          imported++;
+        } catch (error) {
+          console.error(`Error importing compound ${compound.cid}:`, error);
+        }
+      }
+
+      // Rate limiting - wait between batches
+      await this.sleep(1000);
+    }
+
+    return imported;
+  }
+
+  private async importPDBStructures(pdbIds: string[], config: ImportConfig): Promise<number> {
+    let imported = 0;
+
+    for (const [index, pdbId] of pdbIds.entries()) {
+      if (index % 100 === 0) {
+        console.log(`Processing PDB structures: ${index}/${pdbIds.length}`);
+      }
+
+      try {
+        const structure = await this.pdb.fetchStructureInfo(pdbId);
+        if (!structure) continue;
+
+        if (config.validateData && !this.validatePDBStructure(structure)) {
+          console.warn(`Skipping invalid PDB ${pdbId}`);
+          continue;
+        }
+
+        const embedding = config.generateEmbeddings 
+          ? await this.generateEmbedding(structure.title)
+          : null;
+
+        await db.insert(molecules).values({
+          name: structure.title,
+          pdb_id: structure.pdb_id,
+          molecular_formula: structure.molecular_formula,
+          molecular_weight: structure.molecular_weight,
+          description: `${structure.method} structure from ${structure.organism}`,
+          structure_type: 'protein',
+          source: 'pdb',
+          embedding
+        }).onConflictDoNothing();
+
+        imported++;
+      } catch (error) {
+        console.error(`Error importing PDB ${pdbId}:`, error);
+      }
+
+      // Rate limiting
+      await this.sleep(200);
+    }
+
+    return imported;
+  }
+
+  private async generateEmbedding(text: string): Promise<number[]> {
+    try {
+      const response = await this.openai.embeddings.create({
+        model: 'text-embedding-ada-002',
+        input: text
+      });
+      return response.data[0].embedding;
+    } catch (error) {
+      console.error('Error generating embedding:', error);
+      return [];
+    }
+  }
+
+  private validatePubChemCompound(compound: any): boolean {
+    return !!(
+      compound.cid &&
+      (compound.smiles || compound.molecular_formula) &&
+      compound.molecular_weight > 0
+    );
+  }
+
+  private validatePDBStructure(structure: any): boolean {
+    return !!(
+      structure.pdb_id &&
+      structure.title &&
+      structure.pdb_id.length === 4
+    );
+  }
+
+  private chunkArray<T>(array: T[], chunkSize: number): T[][] {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+      chunks.push(array.slice(i, i + chunkSize));
+    }
+    return chunks;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+```
+
+### A.3 Pre-curated Dataset Options
+
+#### Option 1: ChEMBL Database Export
+Download curated drug molecules:
+
+```bash
+# Download ChEMBL compound set (requires registration)
+wget https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/chembl_XX_chemreps.txt.gz
+
+# Or use a smaller FDA-approved drugs dataset
+curl -o fda_drugs.sdf "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/source/FDA%20Orange%20Book/SDF"
+```
+
+#### Option 2: Essential Molecules Dataset
+Create a curated list of essential molecules:
+
+```typescript
+// data/essential-molecules.ts
+export const essentialMolecules = {
+  // Energy metabolism
+  energyMolecules: [
+    { name: 'ATP', pubchem_cid: 5957 },
+    { name: 'ADP', pubchem_cid: 6022 },
+    { name: 'AMP', pubchem_cid: 6083 },
+    { name: 'Glucose', pubchem_cid: 5793 },
+    { name: 'Pyruvate', pubchem_cid: 1060 },
+    { name: 'Acetyl-CoA', pubchem_cid: 444493 }
+  ],
+  
+  // Amino acids
+  aminoAcids: [
+    { name: 'Alanine', pubchem_cid: 5950 },
+    { name: 'Glycine', pubchem_cid: 750 },
+    { name: 'Serine', pubchem_cid: 5951 },
+    { name: 'Threonine', pubchem_cid: 6288 },
+    // ... all 20 standard amino acids
+  ],
+  
+  // Neurotransmitters
+  neurotransmitters: [
+    { name: 'Dopamine', pubchem_cid: 681 },
+    { name: 'Serotonin', pubchem_cid: 5202 },
+    { name: 'Acetylcholine', pubchem_cid: 187 },
+    { name: 'GABA', pubchem_cid: 119 }
+  ],
+  
+  // Common drugs
+  drugs: [
+    { name: 'Aspirin', pubchem_cid: 2244 },
+    { name: 'Ibuprofen', pubchem_cid: 3672 },
+    { name: 'Penicillin', pubchem_cid: 5904 },
+    { name: 'Caffeine', pubchem_cid: 2519 }
+  ],
+  
+  // Important proteins (PDB IDs)
+  proteins: [
+    { name: 'Insulin', pdb_id: '1INS' },
+    { name: 'Hemoglobin', pdb_id: '1HHO' },
+    { name: 'Lysozyme', pdb_id: '1LYZ' },
+    { name: 'DNA Polymerase', pdb_id: '1KLN' }
+  ]
+};
+
+// Usage script
+async function importEssentialMolecules() {
+  const importer = new MoleculeImporter();
+  
+  const config: ImportConfig = {
+    pubchemCids: [
+      ...essentialMolecules.energyMolecules.map(m => m.pubchem_cid),
+      ...essentialMolecules.aminoAcids.map(m => m.pubchem_cid),
+      ...essentialMolecules.neurotransmitters.map(m => m.pubchem_cid),
+      ...essentialMolecules.drugs.map(m => m.pubchem_cid)
+    ],
+    pdbIds: essentialMolecules.proteins.map(p => p.pdb_id),
+    batchSize: 50,
+    generateEmbeddings: true,
+    validateData: true
+  };
+
+  await importer.importDataset(config);
+}
+```
+
+### A.4 Running the Import
+
+Create a Next.js API endpoint for importing:
+
+```typescript
+// app/api/admin/import-molecules/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { MoleculeImporter } from '@/scripts/import-molecules';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/auth';
+
+export async function POST(request: NextRequest) {
+  // Check admin permissions
+  const session = await getServerSession(authOptions);
+  if (!session?.user || session.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const { dataset, options } = await request.json();
+    const importer = new MoleculeImporter();
+
+    let config;
+    switch (dataset) {
+      case 'essential':
+        config = {
+          pubchemCids: [5957, 5793, 2519, 2244, 681, 5202], // Essential molecules
+          batchSize: 20,
+          generateEmbeddings: true,
+          validateData: true
+        };
+        break;
+      
+      case 'drugs':
+        config = {
+          pubchemCids: Array.from({length: 1000}, (_, i) => i + 1), // First 1000 compounds
+          batchSize: 50,
+          generateEmbeddings: options?.embeddings || false,
+          validateData: true
+        };
+        break;
+      
+      case 'proteins':
+        config = {
+          pdbIds: ['1INS', '1LYZ', '1HHO', '1MBN', '1CRN'], // Common proteins
+          batchSize: 10,
+          generateEmbeddings: true,
+          validateData: true
+        };
+        break;
+      
+      default:
+        return NextResponse.json({ error: 'Invalid dataset' }, { status: 400 });
+    }
+
+    await importer.importDataset(config);
+    return NextResponse.json({ success: true, message: 'Import completed' });
+
+  } catch (error) {
+    console.error('Import error:', error);
+    return NextResponse.json({ error: 'Import failed' }, { status: 500 });
+  }
+}
+```
+
+### A.5 Command Line Import Script
+
+For large datasets, use a standalone script:
+
+```typescript
+// scripts/bulk-import.ts
+import { MoleculeImporter, ImportConfig } from './import-molecules';
+
+async function main() {
+  const args = process.argv.slice(2);
+  const dataset = args[0] || 'essential';
+  
+  const configs: Record<string, ImportConfig> = {
+    essential: {
+      pubchemCids: [5957, 5793, 2519, 2244, 681, 5202], // 6 molecules
+      batchSize: 5,
+      generateEmbeddings: true,
+      validateData: true
+    },
+    
+    small_drugs: {
+      pubchemCids: Array.from({length: 100}, (_, i) => i + 1), // 100 compounds
+      batchSize: 20,
+      generateEmbeddings: true,
+      validateData: true
+    },
+    
+    large_drugs: {
+      pubchemCids: Array.from({length: 10000}, (_, i) => i + 1), // 10K compounds
+      batchSize: 100,
+      generateEmbeddings: false, // Skip embeddings for speed
+      validateData: true
+    },
+    
+    proteins: {
+      pdbIds: ['1INS', '1LYZ', '1HHO', '1MBN', '1CRN', '2HHB', '1A3N'], 
+      batchSize: 5,
+      generateEmbeddings: true,
+      validateData: true
+    }
+  };
+
+  const config = configs[dataset];
+  if (!config) {
+    console.error(`Unknown dataset: ${dataset}`);
+    console.log('Available datasets:', Object.keys(configs).join(', '));
+    process.exit(1);
+  }
+
+  const importer = new MoleculeImporter();
+  await importer.importDataset(config);
+}
+
+// Run the script
+main().catch(console.error);
+```
+
+### A.6 Usage Examples
+
+```bash
+# Install dependencies and run imports
+npm install
+
+# Import essential molecules (fast, ~2 minutes)
+npx tsx scripts/bulk-import.ts essential
+
+# Import 100 drug compounds (medium, ~10 minutes)
+npx tsx scripts/bulk-import.ts small_drugs
+
+# Import common proteins (medium, ~5 minutes)
+npx tsx scripts/bulk-import.ts proteins
+
+# Import large dataset without embeddings (slow, ~2 hours)
+npx tsx scripts/bulk-import.ts large_drugs
+```
+
+### A.7 Performance Optimization
+
+For large datasets (>10K molecules):
+
+1. **Disable embeddings initially**:
+```typescript
+const config = {
+  generateEmbeddings: false, // Import structure first
+  // ... other options
+};
+```
+
+2. **Generate embeddings separately**:
+```sql
+-- Add embeddings in batches
+UPDATE molecules 
+SET embedding = generate_embedding(name || ' ' || COALESCE(description, ''))
+WHERE embedding IS NULL 
+LIMIT 100;
+```
+
+3. **Use database transactions**:
+```typescript
+await db.transaction(async (tx) => {
+  for (const molecule of batch) {
+    await tx.insert(molecules).values(molecule);
+  }
+});
+```
+
+4. **Monitor progress**:
+```sql
+-- Check import progress
+SELECT 
+  COUNT(*) as total,
+  COUNT(embedding) as with_embeddings,
+  structure_type,
+  source
+FROM molecules 
+GROUP BY structure_type, source;
+```
+
+This comprehensive approach allows you to build a substantial molecular database tailored to your specific needs! 🧬 
