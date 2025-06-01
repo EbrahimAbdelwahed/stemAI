@@ -4,3 +4,6 @@
 env.local
 .next/
 .env.local
+
+# Test files (build-time dependencies)
+test/

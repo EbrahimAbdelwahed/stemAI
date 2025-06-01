@@ -24,6 +24,27 @@ const nextConfig = {
   },
   // Enhanced webpack configuration
   webpack: (config, { dev, isServer }) => {
+    // Exclude test files and directories from build
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      // Use lighter alternatives where possible
+      'react-dom$': 'react-dom/profiling',
+      'scheduler/tracing': 'scheduler/tracing-profiling',
+    };
+
+    // Add module rules to ignore test files
+    config.module.rules.push({
+      test: /test\/.*$/,
+      loader: 'ignore-loader'
+    });
+
+    // Ignore patterns for test files
+    if (config.ignoreWarnings) {
+      config.ignoreWarnings.push(/test\/.*$/);
+    } else {
+      config.ignoreWarnings = [/test\/.*$/];
+    }
+
     // Optimize client-side bundles
     if (!isServer) {
       // Enhanced code splitting
@@ -90,14 +111,6 @@ const nextConfig = {
         config.optimization.concatenateModules = true;
       }
     }
-
-    // Resolve optimizations
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      // Use lighter alternatives where possible
-      'react-dom$': 'react-dom/profiling',
-      'scheduler/tracing': 'scheduler/tracing-profiling',
-    };
 
     // Performance optimizations for large libraries
     config.externals = config.externals || [];
