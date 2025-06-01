@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, varchar, integer, real, jsonb, boolean, uuid, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, varchar, integer, real, jsonb, boolean, uuid, primaryKey, decimal } from 'drizzle-orm/pg-core';
 import { vector } from 'drizzle-orm/pg-core';
 
 // Authentication Tables (NextAuth.js)
@@ -139,4 +139,47 @@ export const pageViews = pgTable('page_views', {
   timestamp: timestamp('timestamp').defaultNow().notNull(),
   sessionId: varchar('session_id', { length: 255 }),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+});
+
+// Molecular Database Tables
+export const molecules = pgTable('molecules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  commonNames: text('common_names').array(),
+  pdbId: varchar('pdb_id', { length: 10 }),
+  pubchemCid: integer('pubchem_cid'),
+  smilesNotation: text('smiles_notation'),
+  molecularFormula: varchar('molecular_formula', { length: 100 }),
+  molecularWeight: decimal('molecular_weight', { precision: 10, scale: 3 }),
+  description: text('description'),
+  structureType: varchar('structure_type', { length: 20 }).default('small_molecule'),
+  
+  // Search and indexing
+  embedding: vector('embedding', { dimensions: 1536 }),
+  
+  // Metadata
+  source: varchar('source', { length: 50 }),
+  confidenceScore: decimal('confidence_score', { precision: 3, scale: 2 }).default('1.0'),
+  lastValidated: timestamp('last_validated').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const cachedResults = pgTable('cached_results', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  queryHash: varchar('query_hash', { length: 64 }).notNull().unique(),
+  result: jsonb('result').notNull(),
+  queryType: varchar('query_type', { length: 20 }).default('search'),
+  accessCount: integer('access_count').default(0),
+  lastAccessed: timestamp('last_accessed').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const userUsage = pgTable('user_usage', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  queriesCount: integer('queries_count').default(0),
+  uploadsCount: integer('uploads_count').default(0),
+  moleculeLookupsCount: integer('molecule_lookups_count').default(0),
+  storageMb: integer('storage_mb').default(0),
+  lastReset: timestamp('last_reset').defaultNow(),
 }); 
