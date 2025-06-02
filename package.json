@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "echo 'Starting production build - test files will be ignored'",
-    "build": "NODE_ENV=production next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },

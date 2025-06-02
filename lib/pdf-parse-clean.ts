@@ -1,9 +1,6 @@
 // Clean version of pdf-parse without debug code that causes build issues
 // This replaces the original pdf-parse/index.js to avoid the test file access
 
-/* eslint-disable @typescript-eslint/no-require-imports */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 // Import the core PDF parsing functionality directly (without debug code)
 const Pdf = require('pdf-parse/lib/pdf-parse.js');
 
