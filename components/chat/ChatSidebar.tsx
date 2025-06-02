@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useConversations } from '@/hooks/useConversations';
 import { ConversationItem } from './ConversationItem';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ChatSidebarProps {
   currentConversationId?: string;
@@ -30,11 +31,27 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
 
   const handleNewChat = async () => {
     try {
-      // Navigate to new chat without creating conversation first
-      // Let the chat page handle conversation creation
-      router.push('/chat');
+      // Generate a new chat ID
+      const newChatId = uuidv4();
+      
+      // Clear current chat data from localStorage
+      if (currentConversationId) {
+        localStorage.removeItem(`chat-messages-${currentConversationId}`);
+      }
+      
+      // Set new chat ID in localStorage
+      localStorage.setItem('currentChatId', newChatId);
+      
+      // Navigate to chat page with the new ID
+      router.push(`/chat?id=${newChatId}`);
+      
+      // Force a page refresh to ensure clean state
+      setTimeout(() => {
+        window.location.href = '/chat';
+      }, 100);
     } catch (error) {
       console.error('Failed to create new chat:', error);
+      // Fallback: just navigate to chat page
       router.push('/chat');
     }
   };

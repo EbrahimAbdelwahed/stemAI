@@ -245,11 +245,30 @@ export const displayPhysicsSimulation = tool({
 
 // OCR tool for extracting text from images
 export const performOCR = tool({
-  description: 'Extract text and mathematical formulas from IMAGES ONLY using GPT-4o vision capabilities. Use this ONLY for screenshots, photos, scanned images (JPG, PNG, GIF, etc.) that contain text. DO NOT use this for uploaded PDF/DOC files - their text is already extracted and available via RAG context.',
+  description: 'Extract text and mathematical formulas from IMAGE FILES ONLY (JPG, PNG, GIF, BMP, WEBP, etc.). This tool is EXCLUSIVELY for processing screenshots, photos, scanned images, or any visual content that contains text or mathematical formulas. DO NOT use this tool for: PDF documents, Word documents, text files, or any non-image files - their text content is already extracted during upload and available in the conversation context. Only use when the user specifically uploads an image file or asks for OCR/text extraction from a visual image.',
   parameters: ocrToolSchema,
   execute: async (params) => {
     try {
       console.log('[visualization_tools] performOCR execute called with:', params);
+      
+      // Validate that this is actually an image MIME type
+      if (!params.mimeType.startsWith('image/')) {
+        return {
+          error: true,
+          errorMessage: `OCR tool can only process image files. Received: ${params.mimeType}. For document files, the text is already extracted and available in the conversation context.`,
+          details: { mimeType: params.mimeType, imageSize: params.imageData?.length }
+        };
+      }
+      
+      // Validate supported image formats
+      const supportedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+      if (!supportedFormats.includes(params.mimeType.toLowerCase())) {
+        return {
+          error: true,
+          errorMessage: `Unsupported image format: ${params.mimeType}. Supported formats: ${supportedFormats.join(', ')}`,
+          details: { mimeType: params.mimeType, imageSize: params.imageData?.length }
+        };
+      }
       
       const result = await executeOCR(params);
       

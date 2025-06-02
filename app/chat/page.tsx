@@ -108,11 +108,38 @@ export default function ChatPage() {
   });
 
   useEffect(() => {
-    const storedChatId = localStorage.getItem(LOCAL_STORAGE_CHAT_ID_KEY);
-    if (storedChatId) {
-      setChatId(storedChatId);
-      const storedMessages = localStorage.getItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${storedChatId}`);
-      if (storedMessages) {
+    // Check URL parameters first for new chat ID
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlChatId = urlParams.get('id');
+    
+    let chatIdToUse = '';
+    
+    if (urlChatId) {
+      // Use URL chat ID if provided (from nuova chat button)
+      chatIdToUse = urlChatId;
+      setChatId(urlChatId);
+      localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, urlChatId);
+      // Clear URL parameter after using it
+      window.history.replaceState({}, '', '/chat');
+    } else {
+      // Fallback to localStorage or create new
+      const storedChatId = localStorage.getItem(LOCAL_STORAGE_CHAT_ID_KEY);
+      if (storedChatId) {
+        chatIdToUse = storedChatId;
+        setChatId(storedChatId);
+      } else {
+        const newChatId = uuidv4();
+        chatIdToUse = newChatId;
+        setChatId(newChatId);
+        localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, newChatId);
+      }
+    }
+    
+    // Load messages for the selected chat ID
+    if (chatIdToUse) {
+      const storedMessages = localStorage.getItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatIdToUse}`);
+      if (storedMessages && !urlChatId) {
+        // Only restore messages if not a new chat from URL
         try {
           const parsedMessages: Message[] = JSON.parse(storedMessages);
           const validMessages = parsedMessages.map(msg => ({
@@ -125,35 +152,40 @@ export default function ChatPage() {
           
           // Track session resume
           realDataCollector.storeUserEvent('chat_session_resumed', {
-            chatId: storedChatId,
+            chatId: chatIdToUse,
             message_count: validMessages.length,
             model: selectedModel
           }, '/chat');
         } catch (e) {
           console.error("Failed to parse messages from localStorage", e);
-          localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${storedChatId}`);
-          setMessages([]); 
+          localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatIdToUse}`);
+          setMessages([
+            {
+              id: 'welcome',
+              role: 'assistant',
+              content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
+              parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
+            }
+          ]); 
         }
+      } else {
+        // New chat or no stored messages - start fresh
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'assistant',
+            content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
+            parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
+          }
+        ]);
+        
+        // Track new session start
+        realDataCollector.storeUserEvent('chat_session_started', {
+          chatId: chatIdToUse,
+          model: selectedModel,
+          session_start_time: sessionStartTime
+        }, '/chat');
       }
-    } else {
-      const newChatId = uuidv4();
-      setChatId(newChatId);
-      localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, newChatId);
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
-          parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
-        }
-      ]);
-      
-      // Track new session start
-      realDataCollector.storeUserEvent('chat_session_started', {
-        chatId: newChatId,
-        model: selectedModel,
-        session_start_time: sessionStartTime
-      }, '/chat');
     }
     
     // Track page view for chat page
@@ -201,20 +233,31 @@ export default function ChatPage() {
     // Process multiple files
     const processFiles = async () => {
       for (const file of files) {
-        const isImage = file.type.startsWith('image/');
+        // More robust image detection
+        const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(file.name);
+        const isDocument = !isImage && (/\.(pdf|txt|doc|docx)$/i.test(file.name) || file.type.includes('document') || file.type.includes('text'));
+        
+        // Validate file type
+        if (!isImage && !isDocument) {
+          toast.error(`Unsupported file type: ${file.name}. Please upload images (JPG, PNG, GIF, BMP, WEBP) or documents (PDF, TXT, DOC, DOCX).`);
+          continue;
+        }
+        
         const endpoint = isImage ? '/api/ocr' : '/api/documents';
+        const fileType = isImage ? 'image' : 'document';
         
         try {
-          console.log(`[ChatPage] Processing ${isImage ? 'image' : 'document'}: ${file.name}`);
-          toast.info(`Processing ${file.name}...`);
-          track('FileUploadStarted', { fileName: file.name, fileSize: file.size, fileType: isImage ? 'image' : 'document' });
+          console.log(`[ChatPage] Processing ${fileType}: ${file.name} (MIME: ${file.type})`);
+          toast.info(`Processing ${file.name} as ${fileType}...`);
+          track('FileUploadStarted', { fileName: file.name, fileSize: file.size, fileType });
           
           // Enhanced upload tracking
           const uploadStartTime = performance.now();
           realDataCollector.storeUserEvent('file_upload_started', {
             file_name: file.name,
             file_size: file.size,
-            file_type: isImage ? 'image' : 'document',
+            file_type: fileType,
+            mime_type: file.type,
             chatId: chatId,
             model: selectedModel,
             upload_start_time: uploadStartTime
@@ -296,13 +339,13 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
           const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
           console.error(`File processing error for ${file.name}:`, error);
           toast.error(`Processing failed for ${file.name}: ${errorMessage}`);
-          track('FileProcessingFailed', { fileName: file.name, error: errorMessage, fileType: isImage ? 'image' : 'document' });
+          track('FileProcessingFailed', { fileName: file.name, error: errorMessage, fileType });
           
           // Enhanced error tracking
           realDataCollector.storeUserEvent('file_upload_failed', {
             file_name: file.name,
             file_size: file.size,
-            file_type: isImage ? 'image' : 'document',
+            file_type: fileType,
             error_message: errorMessage,
             chatId: chatId,
             model: selectedModel,

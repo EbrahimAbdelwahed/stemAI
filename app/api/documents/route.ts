@@ -260,7 +260,9 @@ async function documentsHandler(req: NextRequest) {
       charactersProcessed: fileContent.length,
       processingMethod,
       userContext: userId ? 'authenticated' : 'anonymous',
-      privacyNote: userId ? 'This document is private to your account' : 'This document is anonymous and may be accessible to other users'
+      privacyNote: userId ? 'This document is private to your account' : 'This document is anonymous and may be accessible to other users',
+      extractedTextPreview: fileContent.length > 500 ? fileContent.substring(0, 500) + '...' : fileContent,
+      hasMoreContent: fileContent.length > 500
     });
   } catch (error) {
     console.error('Error uploading document:', error);
