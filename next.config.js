@@ -29,7 +29,7 @@ const nextConfig = {
     config.plugins.push(
       new webpack.NormalModuleReplacementPlugin(
         /^pdf-parse$/,
-        require.resolve('./lib/pdf-parse-clean.js')
+        require.resolve('./lib/pdf-parse-clean.ts')
       )
     );
 

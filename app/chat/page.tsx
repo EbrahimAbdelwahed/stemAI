@@ -81,7 +81,7 @@ export default function ChatPage() {
     toast.error(`Chat error: ${err.message}`);
     track('ChatError', { model: selectedModel, error: err.message });
     trackError(err, 'ChatPage', true);
-  }, [selectedModel, chatId, realDataCollector]);
+  }, [selectedModel]);
 
   const { 
     messages, 
