@@ -302,7 +302,7 @@ export default function ConwaysGameOfLife({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <ZapIcon />
-          Conway's Game of Life
+          Conway&apos;s Game of Life
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           A cellular automaton demonstrating how complex patterns emerge from simple rules. 

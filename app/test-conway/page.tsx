@@ -4,7 +4,7 @@ export default function TestConwayPage() {
   return (
     <div className="container mx-auto p-6 space-y-8">
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold">Conway's Game of Life</h1>
+        <h1 className="text-4xl font-bold">Conway&apos;s Game of Life</h1>
         <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
           Experience the fascinating world of cellular automata where simple rules create complex, 
           unpredictable patterns. Watch as life emerges, grows, and evolves on a digital canvas.
@@ -15,12 +15,12 @@ export default function TestConwayPage() {
       
       <div className="max-w-4xl mx-auto space-y-6">
         <section className="bg-card p-6 rounded-lg border">
-          <h2 className="text-2xl font-semibold mb-4">About Conway's Game of Life</h2>
+          <h2 className="text-2xl font-semibold mb-4">About Conway&apos;s Game of Life</h2>
           <div className="space-y-4 text-muted-foreground">
             <p>
               Created by mathematician John Conway in 1970, the Game of Life is a zero-player game 
               that demonstrates how complex behaviors can emerge from simple mathematical rules. 
-              It's a perfect example of a cellular automaton - a discrete model of computation.
+              It&apos;s a perfect example of a cellular automaton - a discrete model of computation.
             </p>
             <p>
               Despite its simplicity, the Game of Life is Turing complete, meaning it can simulate 
