@@ -463,8 +463,8 @@ async function chatHandler(req: NextRequest): Promise<Response> {
       
       if (!isSimpleQuery) {
         console.log('[RAG] Searching documents for query:', lastUserMessage.content.substring(0, 50) + '...');
-        const relevantDocs = await searchDocumentsOptimized(lastUserMessage.content, 3);
-        console.log(`[RAG] Search returned ${relevantDocs.length} relevant documents`);
+        const relevantDocs = await searchDocumentsOptimized(lastUserMessage.content, 3, userId);
+        console.log(`[RAG] Search returned ${relevantDocs.length} relevant documents for user: ${userId || 'anonymous'}`);
         
         if (relevantDocs && relevantDocs.length > 0) {
           context = `Here is some relevant information that may help answer the question:\n\n` +

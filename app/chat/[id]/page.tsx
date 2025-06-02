@@ -9,7 +9,8 @@ import ChatMessages from '../../../components/ChatMessages';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/Card';
 import { Typography } from '../../../components/ui/Typography';
-import { AppLayout } from '../../../components/layout/AppLayout';
+import { ChatGPTLayout } from '../../../components/chat/ChatGPTLayout';
+import { ChatMainArea } from '../../../components/chat/ChatMainArea';
 import { toast } from 'sonner';
 import { track } from '@vercel/analytics';
 import { ChatFlowTracker, trackError } from '@/lib/analytics/event-tracking';
@@ -48,60 +49,6 @@ export default function ConversationPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [sessionStartTime] = useState<number>(Date.now());
   const realDataCollector = RealDataCollector.getInstance();
-
-  // Load conversation data
-  useEffect(() => {
-    const loadConversation = async () => {
-      setIsLoadingConversation(true);
-      
-      try {
-        const response = await fetch(`/api/conversations/${conversationId}`);
-        if (!response.ok) {
-          if (response.status === 404) {
-            toast.error('Conversation not found');
-            router.push('/chat');
-            return;
-          }
-          throw new Error('Failed to load conversation');
-        }
-
-        const data = await response.json();
-        const conversation = data.conversation;
-        
-        setConversationData(conversation);
-        setSelectedModel(conversation.model as ModelType || 'grok-3-mini');
-        
-        // Convert database messages to Vercel AI format
-        const convertedMessages: Message[] = conversation.messages.map((msg: any) => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          parts: msg.parts || [{ type: 'text' as const, text: msg.content }],
-          createdAt: new Date(msg.createdAt),
-        }));
-        
-        setMessages(convertedMessages);
-        
-        // Track conversation load
-        realDataCollector.storeUserEvent('conversation_loaded', {
-          conversationId,
-          messageCount: conversation.messages.length,
-          model: conversation.model
-        }, `/chat/${conversationId}`);
-        
-      } catch (error) {
-        console.error('Error loading conversation:', error);
-        toast.error('Failed to load conversation');
-        router.push('/chat');
-      } finally {
-        setIsLoadingConversation(false);
-      }
-    };
-
-    if (conversationId) {
-      loadConversation();
-    }
-  }, [conversationId, router, realDataCollector]);
 
   const onFinishHandler = useCallback((message: Message) => {
     console.log('[ConversationPage] onFinish called with message:', message);
@@ -176,6 +123,60 @@ export default function ConversationPage() {
     onError: onErrorHandler,
   });
 
+  // Load conversation data after useChat is initialized
+  useEffect(() => {
+    const loadConversation = async () => {
+      setIsLoadingConversation(true);
+      
+      try {
+        const response = await fetch(`/api/conversations/${conversationId}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            toast.error('Conversation not found');
+            router.push('/chat');
+            return;
+          }
+          throw new Error('Failed to load conversation');
+        }
+
+        const data = await response.json();
+        const conversation = data.conversation;
+        
+        setConversationData(conversation);
+        setSelectedModel(conversation.model as ModelType || 'grok-3-mini');
+        
+        // Convert database messages to Vercel AI format
+        const convertedMessages: Message[] = conversation.messages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          parts: msg.parts || [{ type: 'text' as const, text: msg.content }],
+          createdAt: new Date(msg.createdAt),
+        }));
+        
+        setMessages(convertedMessages);
+        
+        // Track conversation load
+        realDataCollector.storeUserEvent('conversation_loaded', {
+          conversationId,
+          messageCount: conversation.messages.length,
+          model: conversation.model
+        }, `/chat/${conversationId}`);
+        
+      } catch (error) {
+        console.error('Error loading conversation:', error);
+        toast.error('Failed to load conversation');
+        router.push('/chat');
+      } finally {
+        setIsLoadingConversation(false);
+      }
+    };
+
+    if (conversationId && setMessages) {
+      loadConversation();
+    }
+  }, [conversationId, router, realDataCollector, setMessages]);
+
   const handleModelChange = (newModel: ModelType) => {
     const previousModel = selectedModel;
     setSelectedModel(newModel);
@@ -236,96 +237,52 @@ export default function ConversationPage() {
 
   if (isLoadingConversation) {
     return (
-      <AppLayout currentConversationId={conversationId}>
+      <ChatGPTLayout currentConversationId={conversationId}>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <TypingIndicator />
-            <p className="text-neutral-400 mt-4">Loading conversation...</p>
+            <div className="w-8 h-8 border-2 border-[#8e8ea0] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-[#8e8ea0]">Loading conversation...</p>
           </div>
         </div>
-      </AppLayout>
+      </ChatGPTLayout>
     );
   }
 
   if (!conversationData) {
     return (
-      <AppLayout currentConversationId={conversationId}>
+      <ChatGPTLayout currentConversationId={conversationId}>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-neutral-400">Conversation not found</p>
+            <p className="text-[#8e8ea0] mb-4">Conversation not found</p>
             <Button 
               onClick={() => router.push('/chat')}
-              className="mt-4"
-              variant="outline"
+              className="bg-white text-black hover:bg-gray-200"
             >
               Start New Chat
             </Button>
           </div>
         </div>
-      </AppLayout>
+      </ChatGPTLayout>
     );
   }
 
   return (
-    <AppLayout currentConversationId={conversationId}>
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Sticky Header */}
-        <div className="sticky top-0 z-50 border-b border-gray-800/50 bg-neutral-900/95 backdrop-blur-sm">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div>
-              <h1 className="text-lg font-semibold text-white truncate max-w-md">
-                {conversationData.title}
-              </h1>
-              <p className="text-sm text-neutral-400">
-                Model: {selectedModel.replace(/-/g, ' ')} • {messages.length} messages
-              </p>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Button
-                onClick={handleClearChat}
-                variant="outline"
-                size="sm"
-                disabled={isLoading || messages.length === 0}
-              >
-                Clear
-              </Button>
-              
-              <Button
-                onClick={() => router.push('/chat')}
-                variant="outline"
-                size="sm"
-              >
-                New Chat
-              </Button>
-            </div>
-          </div>
-        </div>
-
-                 {/* Messages Area */}
-         <div className="flex-1 overflow-y-auto">
-           <ChatMessages 
-             messages={messages}
-           />
-         </div>
-
-         {/* Sticky Input Area */}
-         <div className="sticky bottom-0 z-50 border-t border-gray-800/50 bg-neutral-900/95 backdrop-blur-sm">
-           <div className="p-6">
-             <ChatInput
-               input={input}
-               handleInputChange={handleInputChange}
-               handleSubmit={handleSubmitWithOptions}
-               isLoading={isLoading}
-               selectedModel={selectedModel}
-               onModelChange={handleModelChange}
-               onFileUpload={handleFileUploadCallback}
-               isUploading={isUploading}
-               stop={stop}
-             />
-           </div>
-         </div>
-      </div>
-    </AppLayout>
+    <ChatGPTLayout currentConversationId={conversationId}>
+      <ChatMainArea title={conversationData.title}>
+        <ChatMessages messages={messages} />
+        <ChatInput
+          input={input}
+          handleInputChange={handleInputChange}
+          handleSubmit={handleSubmitWithOptions}
+          isLoading={isLoading}
+          stop={stop}
+          disabled={isUploading}
+          selectedModel={selectedModel}
+          onModelChange={handleModelChange}
+          onFileUpload={handleFileUploadCallback}
+          isUploading={isUploading}
+        />
+      </ChatMainArea>
+    </ChatGPTLayout>
   );
 } 

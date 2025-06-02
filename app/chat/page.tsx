@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useChat, Message as VercelMessage } from '@ai-sdk/react';
 import ChatInput from '../../components/ChatInput';
 import ChatMessages from '../../components/ChatMessages';
+import DocumentPrivacyNotice from '../../components/chat/DocumentPrivacyNotice';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/Card';
 import { Typography } from '../../components/ui/Typography';
@@ -14,6 +15,8 @@ import { track } from '@vercel/analytics';
 import { ChatFlowTracker, trackError } from '@/lib/analytics/event-tracking';
 import { RealDataCollector } from '@/lib/analytics/real-data-collector';
 import { TypingIndicator } from '../../components/ui/LoadingStates';
+import { ChatGPTLayout } from '../../components/chat/ChatGPTLayout';
+import { ChatMainArea } from '../../components/chat/ChatMainArea';
 
 // Message type from Vercel AI SDK is used directly.
 // The SDK's Message type should include toolInvocations for Vercel AI SDK v3+.
@@ -368,123 +371,22 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
   };
 
   return (
-    <AppLayout>
-      {/* Main Chat Interface */}
-      <div className="flex flex-col h-screen">
-        {/* Sticky Top Bar */}
-        <div className="sticky top-0 z-50 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800/50 px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <h1 className="text-lg font-semibold text-white">STEM AI Assistant</h1>
-              <div className="flex items-center space-x-2 text-sm text-gray-400">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                <span>Connected</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Button 
-                variant="secondary" 
-                size="sm"
-                onClick={handleClearChat} 
-                disabled={isLoading}
-                icon={
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                }
-              >
-                New Chat
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            {/* Error State */}
-            {chatError && (
-              <Card variant="highlight" className="mb-6 border-red-500/30 bg-red-500/5">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <Typography variant="small" color="error" className="font-medium">
-                      Chat Error
-                    </Typography>
-                    <Typography variant="muted" className="text-red-300">
-                      {chatError.message}
-                    </Typography>
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Chat Messages */}
-            <ChatMessages messages={messages} />
-
-            {/* Enhanced Loading State with TypingIndicator */}
-            {isLoading && messages[messages.length -1]?.role === 'user' && (
-              <div className="flex justify-start mr-8 mt-6">
-                <div className="max-w-3xl w-full">
-                  <Card variant="enhanced" className="hover:shadow-xl hover:shadow-blue-500/10">
-                    {/* Message Header */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                          </svg>
-                        </div>
-                        <Typography variant="small" className="font-semibold text-blue-400">
-                          AI Assistant
-                        </Typography>
-                      </div>
-                      <Typography variant="muted" className="text-xs text-gray-500">
-                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Typography>
-                    </div>
-                    
-                    {/* Enhanced Typing Indicator */}
-                    <div className="py-4">
-                      <TypingIndicator className="mb-2" />
-                      <Typography variant="muted" className="text-xs text-gray-500">
-                        Processing with {selectedModel}...
-                      </Typography>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-            )}
-          </div>
-        </main>
-
-        {/* Sticky Chat Input Footer */}
-        <footer className="sticky bottom-0 z-50 border-t border-gray-800/50 bg-gray-900/95 backdrop-blur-sm">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <ChatInput 
-              input={input} 
-              handleInputChange={handleInputChange} 
-              handleSubmit={handleSubmitWithOptions} 
-              isLoading={isLoading} 
-              stop={stop}
-              disabled={isUploading}
-              selectedModel={selectedModel}
-              onModelChange={handleModelChange}
-              onFileUpload={handleFileUploadCallback}
-              isUploading={isUploading}
-            />
-            <div className="flex items-center justify-center mt-3 text-xs">
-              <Typography variant="muted">
-                AI can make mistakes. Consider checking important information.
-              </Typography>
-            </div>
-          </div>
-        </footer>
-      </div>
-    </AppLayout>
+    <ChatGPTLayout currentConversationId={chatId}>
+      <ChatMainArea>
+        <ChatMessages messages={messages} />
+        <ChatInput
+          input={input}
+          handleInputChange={handleInputChange}
+          handleSubmit={handleSubmitWithOptions}
+          isLoading={isLoading}
+          stop={stop}
+          disabled={isUploading}
+          selectedModel={selectedModel}
+          onModelChange={handleModelChange}
+          onFileUpload={handleFileUploadCallback}
+          isUploading={isUploading}
+        />
+      </ChatMainArea>
+    </ChatGPTLayout>
   );
 } 

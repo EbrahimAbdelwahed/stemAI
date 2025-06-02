@@ -1,10 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addDocument } from '../../../lib/ai/documents';
 import { trackAPIPerformance } from '../../../lib/analytics/api-performance-middleware';
+import { auth } from '@/auth';
+import { db } from '@/lib/db';
+import { documents } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 import pdf from 'pdf-parse';
+
+// GET endpoint to list user's documents
+async function getDocumentsHandler(req: NextRequest) {
+  try {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Authentication required to view documents' },
+        { status: 401 }
+      );
+    }
+
+    const userDocuments = await db
+      .select({
+        id: documents.id,
+        title: documents.title,
+        isPublic: documents.isPublic,
+        createdAt: documents.createdAt,
+        updatedAt: documents.updatedAt,
+      })
+      .from(documents)
+      .where(eq(documents.userId, session.user.id))
+      .orderBy(documents.createdAt);
+
+    return NextResponse.json({
+      success: true,
+      documents: userDocuments,
+      count: userDocuments.length
+    });
+  } catch (error) {
+    console.error('Error fetching user documents:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch documents' },
+      { status: 500 }
+    );
+  }
+}
 
 async function documentsHandler(req: NextRequest) {
   try {
+    // Get user session for authentication
+    const session = await auth();
+    
     // Check if RAG is enabled first
     if (process.env.RAG_ENABLED !== 'true') {
       return NextResponse.json(
@@ -124,8 +169,9 @@ async function documentsHandler(req: NextRequest) {
     
     console.log(`Processing document: ${title}, Method: ${processingMethod}, Content length: ${fileContent.length} characters`);
     
-    // Add document to database with embeddings
-    const documentId = await addDocument(title, fileContent);
+    // Add document to database with embeddings and user context
+    const userId = session?.user?.id || null; // Allow anonymous uploads but track them
+    const documentId = await addDocument(title, fileContent, userId);
     
     // Check if addDocument actually succeeded
     if (!documentId) {
@@ -144,7 +190,9 @@ async function documentsHandler(req: NextRequest) {
       message: `Document "${title}" uploaded and processed successfully`,
       fileSize: file.size,
       charactersProcessed: fileContent.length,
-      processingMethod
+      processingMethod,
+      userContext: userId ? 'authenticated' : 'anonymous',
+      privacyNote: userId ? 'This document is private to your account' : 'This document is anonymous and may be accessible to other users'
     });
   } catch (error) {
     console.error('Error uploading document:', error);
@@ -178,5 +226,6 @@ async function documentsHandler(req: NextRequest) {
   }
 }
 
-// Export the wrapped handler with performance tracking
+// Export the wrapped handlers with performance tracking
+export const GET = trackAPIPerformance(getDocumentsHandler);
 export const POST = trackAPIPerformance(documentsHandler); 
