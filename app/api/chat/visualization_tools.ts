@@ -245,7 +245,7 @@ export const displayPhysicsSimulation = tool({
 
 // OCR tool for extracting text from images
 export const performOCR = tool({
-  description: 'Extract text and mathematical formulas from images using GPT-4o vision capabilities. Use this when users request OCR, text extraction from images, or want to process screenshots/photos of documents, handwritten notes, or any image containing text.',
+  description: 'Extract text and mathematical formulas from IMAGES ONLY using GPT-4o vision capabilities. Use this ONLY for screenshots, photos, scanned images (JPG, PNG, GIF, etc.) that contain text. DO NOT use this for uploaded PDF/DOC files - their text is already extracted and available via RAG context.',
   parameters: ocrToolSchema,
   execute: async (params) => {
     try {

@@ -226,7 +226,7 @@ async function executeOCR(params: z.infer<typeof ocrToolSchema>): Promise<OCRRes
 
 // Export the OCR tool following the established pattern
 export const ocrTool = tool({
-  description: 'Extract text and mathematical formulas from images using GPT-4o vision capabilities. Use this when users upload images containing text, handwritten notes, equations, documents, or screenshots that need text extraction.',
+  description: 'Extract text and mathematical formulas from IMAGES ONLY using GPT-4o vision capabilities. Use this ONLY for screenshots, photos, scanned images (JPG, PNG, GIF, BMP, WEBP, etc.) that contain text, handwritten notes, equations, or any visual content needing text extraction. DO NOT use this for uploaded PDF/DOC files - their text is already extracted during upload and available via RAG context.',
   parameters: ocrToolSchema,
   execute: executeOCR,
 });
