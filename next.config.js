@@ -24,6 +24,15 @@ const nextConfig = {
   },
   // Enhanced webpack configuration
   webpack: (config, { dev, isServer }) => {
+    // CRITICAL FIX: Replace pdf-parse index.js to avoid debug code execution
+    const webpack = require('webpack');
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(
+        /^pdf-parse$/,
+        require.resolve('./lib/pdf-parse-clean.js')
+      )
+    );
+
     // CRITICAL: Exclude test files and directories from ALL modules
     config.module.rules.push({
       test: /node_modules.*\/test\/.*\.(js|ts|jsx|tsx|json|pdf)$/,
