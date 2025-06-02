@@ -13,32 +13,59 @@ import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 interface StreamingMarkdownProps {
   text: string;
   className?: string;
-  speed?: number;
+  speed?: number; // Now represents words per second instead of ms per character
+  streamingMode?: 'character' | 'word' | 'chunk'; // New: streaming mode option
 }
 
 export function StreamingMarkdown({ 
   text, 
   className = '', 
-  speed = 30
+  speed = 4.5, // Default: 4.5 words per second
+  streamingMode = 'word' // Default to word-based streaming
 }: StreamingMarkdownProps) {
   const [displayedText, setDisplayedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
 
-  // Stream the text character by character
+  // Smart streaming effect based on mode
   useEffect(() => {
     if (currentIndex < text.length) {
+      let nextIndex = currentIndex;
+      let delay = 50; // Default delay
+
+      if (streamingMode === 'character') {
+        // Character-by-character streaming (faster than before)
+        nextIndex = currentIndex + 1;
+        delay = 1000 / (speed * 5); // Assuming 5 chars per word on average
+      } else if (streamingMode === 'word') {
+        // Word-by-word streaming for natural reading flow
+        const remainingText = text.slice(currentIndex);
+        const wordMatch = remainingText.match(/^(\s*\S+\s*)/);
+        
+        if (wordMatch) {
+          nextIndex = currentIndex + wordMatch[1].length;
+        } else {
+          nextIndex = currentIndex + 1; // Fallback to character
+        }
+        delay = 1000 / speed; // Direct words per second
+      } else if (streamingMode === 'chunk') {
+        // Chunk-based streaming for very fast display
+        const chunkSize = Math.max(1, Math.floor(speed * 2)); // Adaptive chunk size
+        nextIndex = Math.min(currentIndex + chunkSize, text.length);
+        delay = 1000 / speed;
+      }
+
       const timer = setTimeout(() => {
-        setDisplayedText(text.slice(0, currentIndex + 1));
-        setCurrentIndex(currentIndex + 1);
-      }, speed);
+        setDisplayedText(text.slice(0, nextIndex));
+        setCurrentIndex(nextIndex);
+      }, delay);
 
       return () => clearTimeout(timer);
     } else {
       setIsComplete(true);
     }
-  }, [text, currentIndex, speed]);
+  }, [text, currentIndex, speed, streamingMode]);
 
   // Reset when text changes
   useEffect(() => {

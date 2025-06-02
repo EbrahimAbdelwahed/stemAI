@@ -181,26 +181,45 @@ interface StreamingTextProps {
   text: string;
   className?: string;
   speed?: number;
+  streamingMode?: 'character' | 'word';
 }
 
 export const StreamingText: React.FC<StreamingTextProps> = ({ 
   text, 
   className = "",
-  speed = 50 
+  speed = 40,
+  streamingMode = 'character'
 }) => {
   const [displayedText, setDisplayedText] = React.useState('');
   const [currentIndex, setCurrentIndex] = React.useState(0);
 
   React.useEffect(() => {
     if (currentIndex < text.length) {
+      let nextIndex = currentIndex;
+      let delay = speed;
+
+      if (streamingMode === 'word') {
+        const remainingText = text.slice(currentIndex);
+        const wordMatch = remainingText.match(/^(\s*\S+\s*)/);
+        
+        if (wordMatch) {
+          nextIndex = currentIndex + wordMatch[1].length;
+        } else {
+          nextIndex = currentIndex + 1;
+        }
+        delay = speed * 3;
+      } else {
+        nextIndex = currentIndex + 1;
+      }
+
       const timeout = setTimeout(() => {
-        setDisplayedText(prev => prev + text[currentIndex]);
-        setCurrentIndex(prev => prev + 1);
-      }, speed);
+        setDisplayedText(text.slice(0, nextIndex));
+        setCurrentIndex(nextIndex);
+      }, delay);
 
       return () => clearTimeout(timeout);
     }
-  }, [currentIndex, text, speed]);
+  }, [currentIndex, text, speed, streamingMode]);
 
   React.useEffect(() => {
     setDisplayedText('');
