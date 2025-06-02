@@ -92,7 +92,7 @@ export default function ConwaysGameOfLife({
   cellSize = 8 
 }: ConwaysGameOfLifeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
   const [isRunning, setIsRunning] = useState(false);
   const [generation, setGeneration] = useState(0);
   const [speed, setSpeed] = useState(100); // milliseconds between generations
