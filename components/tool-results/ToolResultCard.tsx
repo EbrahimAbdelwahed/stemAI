@@ -300,7 +300,13 @@ const ToolResultCard = memo<ToolResultCardProps>(({
       if (isExpanded) {
         baseClasses.push('max-h-none');
       } else {
-        baseClasses.push('min-h-[500px]', 'max-h-[600px]', 'overflow-hidden');
+        // Remove restrictive max-height for visualizations to prevent cropping
+        // Allow visualizations to use their natural height with a reasonable minimum
+        baseClasses.push('min-h-[400px]');
+        // Only apply overflow-hidden if content is actually too tall
+        if (contentRef.current && contentRef.current.scrollHeight > contentRef.current.clientHeight) {
+          baseClasses.push('overflow-hidden');
+        }
       }
     } else {
       // For text content: use original constraints
@@ -313,6 +319,20 @@ const ToolResultCard = memo<ToolResultCardProps>(({
     
     return baseClasses.join(' ');
   }, [isVisualizationContent, isExpanded]);
+
+  // Add effect to check if content is overflowing and auto-expand if needed for visualizations
+  useEffect(() => {
+    if (isVisualizationContent && contentRef.current && !isExpanded) {
+      const element = contentRef.current;
+      const isOverflowing = element.scrollHeight > element.clientHeight + 10; // 10px tolerance
+      
+      // For molecular visualizations, if content is overflowing significantly, auto-expand
+      if (isOverflowing && onExpand) {
+        console.log(`[ToolResultCard] Auto-expanding ${toolName} due to content overflow`);
+        onExpand();
+      }
+    }
+  }, [isVisualizationContent, isExpanded, onExpand, toolName, children]);
 
   return (
     <div

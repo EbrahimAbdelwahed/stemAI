@@ -59,6 +59,7 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const executedRef = useRef<string>('');
   const renderedRef = useRef<boolean>(false);
+  const viewerRef = useRef<any>(null);
 
   // Create stable keys
   const moleculeKey = `${identifierType}:${identifier}`;
@@ -67,6 +68,30 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
   // Check if this molecule was already successfully rendered
   const wasSuccessfullyRendered = successfullyRendered.has(cacheKey);
   const cachedMolecule = globalMoleculeCache.get(cacheKey);
+
+  // Add resize observer to handle container size changes
+  useEffect(() => {
+    if (!containerRef.current || !viewerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (viewerRef.current && entry.target === containerRef.current) {
+          // Resize the 3Dmol viewer when container size changes
+          setTimeout(() => {
+            if (viewerRef.current && viewerRef.current.resize) {
+              viewerRef.current.resize();
+            }
+          }, 100);
+        }
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [isLoaded]);
 
   useEffect(() => {
     // Enhanced prevention logic
@@ -134,9 +159,12 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
         const viewer = window.$3Dmol.createViewer(containerRef.current, {
           backgroundColor: 'white',
           antialias: true,
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight
+          width: '100%',
+          height: '100%'
         });
+
+        // Store viewer reference for resizing
+        viewerRef.current = viewer;
 
         setStatus('Loading molecule data...');
 
@@ -281,9 +309,12 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
       const viewer = window.$3Dmol.createViewer(containerRef.current, {
         backgroundColor: 'white',
         antialias: true,
-        width: containerRef.current.offsetWidth,
-        height: containerRef.current.offsetHeight
+        width: '100%',
+        height: '100%'
       });
+
+      // Store viewer reference for resizing
+      viewerRef.current = viewer;
 
       // Render from cached data
       await renderMolecule(viewer, cached.moleculeData, cached.format, cached.representationStyle);
@@ -362,7 +393,7 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
       {title && <h3 className="text-lg font-semibold mb-2">{title}</h3>}
       {description && <p className="text-sm text-gray-600 mb-2">{description}</p>}
       
-      <div className="bg-white rounded border border-gray-300" style={{ height: '500px', position: 'relative' }}>
+      <div className="bg-white rounded border border-gray-300 min-h-[400px] relative flex flex-col">
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
             <div className="text-center">
@@ -376,7 +407,7 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
         )}
         <div 
           ref={containerRef}
-          className="w-full h-full"
+          className="w-full flex-grow min-h-[400px]"
         />
       </div>
       

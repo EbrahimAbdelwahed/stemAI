@@ -40,9 +40,9 @@ export function MoleculeVisualizationResult({ result }: MoleculeVisualizationRes
               </div>
               
               {/* 3D Viewer with white background */}
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-[300px]">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden min-h-[400px] max-h-[800px]">
                 <Suspense fallback={
-                  <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="flex items-center justify-center h-full text-gray-500 min-h-[400px]">
                     Loading...
                   </div>
                 }>
@@ -105,9 +105,9 @@ export function MoleculeVisualizationResult({ result }: MoleculeVisualizationRes
       )}
       
       {/* Single molecule viewer */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-[400px]">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden min-h-[500px] max-h-[900px]">
         <Suspense fallback={
-          <div className="flex items-center justify-center h-full text-gray-500">
+          <div className="flex items-center justify-center h-full text-gray-500 min-h-[500px]">
             Loading 3D visualization...
           </div>
         }>

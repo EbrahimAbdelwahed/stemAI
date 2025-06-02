@@ -1,6 +1,8 @@
 import { db, documents, chunks } from '../db';
 import { generateEmbeddings } from './embedding';
 import { ragCache } from './smart-rag-cache';
+import { eq, and, or, isNull } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 interface DocumentChunk {
   id: number;
@@ -79,62 +81,71 @@ export async function searchDocumentsOptimized(
     return cached;
   }
 
-  // 2. Generate embedding for the query
-  const [queryEmbedding] = await generateEmbeddings(query);
-  const embeddingTime = performance.now();
-  console.log(`[Optimized RAG] Embedding generated in ${(embeddingTime - startTime).toFixed(2)}ms`);
-  
-  // 3. Format the embedding as a proper vector literal for PostgreSQL
-  const embeddingVector = `[${queryEmbedding.embedding.join(',')}]`;
-  
-  // 4. Build WHERE clause for user filtering and similarity threshold
-  let whereClause = 'WHERE 1 - (chunks.embedding <=> \'' + embeddingVector + '\'::vector) > 0.5';
-  if (userId) {
-    // Authenticated user: search their documents + public documents + anonymous documents
-    whereClause += ` AND (documents.userId = '${userId}' OR documents.isPublic = true OR documents.userId IS NULL)`;
-  } else {
-    // Anonymous user: only search public documents and documents uploaded anonymously
-    whereClause += ` AND (documents.isPublic = true OR documents.userId IS NULL)`;
+  try {
+    // 2. Generate embedding for the query
+    const [queryEmbedding] = await generateEmbeddings(query);
+    const embeddingTime = performance.now();
+    console.log(`[Optimized RAG] Embedding generated in ${(embeddingTime - startTime).toFixed(2)}ms`);
+    
+    // 3. Format the embedding as a proper vector literal for PostgreSQL
+    const embeddingVector = `[${queryEmbedding.embedding.join(',')}]`;
+    
+    // 4. Build WHERE clause for user filtering and similarity threshold using Drizzle ORM
+    let whereCondition;
+    const similarityThreshold = sql`1 - (${chunks.embedding} <=> ${embeddingVector}::vector) > 0.5`;
+    
+    if (userId) {
+      // Authenticated user: search their documents + public documents + anonymous documents
+      whereCondition = and(
+        similarityThreshold,
+        or(
+          eq(documents.userId, userId),
+          eq(documents.isPublic, true),
+          isNull(documents.userId)
+        )
+      );
+    } else {
+      // Anonymous user: only search public documents and documents uploaded anonymously
+      whereCondition = and(
+        similarityThreshold,
+        or(
+          eq(documents.isPublic, true),
+          isNull(documents.userId)
+        )
+      );
+    }
+    
+    // 5. Use optimized vector search with pre-filtering and user context
+    const result = await db
+      .select({
+        id: chunks.id,
+        content: chunks.content,
+        document_id: chunks.documentId,
+        title: documents.title,
+        userId: documents.userId,
+        isPublic: documents.isPublic,
+        similarity: sql<number>`1 - (${chunks.embedding} <=> ${embeddingVector}::vector)`.as('similarity')
+      })
+      .from(chunks)
+      .innerJoin(documents, eq(chunks.documentId, documents.id))
+      .where(whereCondition)
+      .orderBy(sql`similarity DESC`)
+      .limit(limit);
+
+    const searchTime = performance.now();
+    console.log(`[Optimized RAG] Vector search completed in ${(searchTime - embeddingTime).toFixed(2)}ms`);
+
+    // 6. Cache results for future use with user-specific cache key
+    ragCache.cacheResults(cacheKey, queryEmbedding.embedding, result);
+    
+    const totalTime = performance.now() - startTime;
+    console.log(`[Optimized RAG] Total search completed in ${totalTime.toFixed(2)}ms with ${result.length} results for user: ${userId || 'anonymous'}`);
+    
+    return result;
+  } catch (error) {
+    console.error('[Optimized RAG] Error in searchDocumentsOptimized:', error);
+    return [];
   }
-  
-  // 5. Use optimized vector search with pre-filtering and user context
-  const result = await db.execute(`
-    SELECT 
-      chunks.id,
-      chunks.content,
-      chunks.document_id,
-      documents.title,
-      documents.userId,
-      documents.isPublic,
-      1 - (chunks.embedding <=> '${embeddingVector}'::vector) AS similarity
-    FROM chunks
-    JOIN documents ON chunks.document_id = documents.id
-    ${whereClause}
-    ORDER BY similarity DESC
-    LIMIT ${limit}
-  `);
-
-  const searchTime = performance.now();
-  console.log(`[Optimized RAG] Vector search completed in ${(searchTime - embeddingTime).toFixed(2)}ms`);
-
-  // Convert the result to a usable array
-  const rows = result.rows as Array<{
-    id: number;
-    content: string;
-    document_id: number;
-    title: string;
-    userId: string | null;
-    isPublic: boolean;
-    similarity: number;
-  }>;
-  
-  // 6. Cache results for future use with user-specific cache key
-  ragCache.cacheResults(cacheKey, queryEmbedding.embedding, rows);
-  
-  const totalTime = performance.now() - startTime;
-  console.log(`[Optimized RAG] Total search completed in ${totalTime.toFixed(2)}ms with ${rows.length} results for user: ${userId || 'anonymous'}`);
-  
-  return rows;
 }
 
 // Legacy function for backward compatibility - now with user context support

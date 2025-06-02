@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { useConversations } from '@/hooks/useConversations';
 import { ConversationItem } from './ConversationItem';
 
@@ -13,6 +14,7 @@ interface ChatSidebarProps {
 export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
+  const { data: session } = useSession();
   const { 
     conversations, 
     createConversation, 
@@ -68,6 +70,12 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
       {/* Navigation */}
       <div className="p-3 border-b border-[#4d4d4d]">
         <nav className="space-y-1">
+          <Link href="/" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            Home
+          </Link>
           <Link href="/chat" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -140,14 +148,38 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
       
       {/* User Profile Section */}
       <div className="border-t border-[#4d4d4d] p-3">
-        <div className="flex items-center gap-3 text-sm text-[#8e8ea0]">
-          <div className="w-6 h-6 rounded-full bg-[#2f2f2f] flex items-center justify-center">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+        {session?.user ? (
+          <Link href="/profile" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm text-[#8e8ea0] hover:text-white">
+            <div className="w-6 h-6 rounded-full bg-[#2f2f2f] flex items-center justify-center">
+              {session.user.image ? (
+                <img 
+                  src={session.user.image} 
+                  alt="Profile" 
+                  className="w-6 h-6 rounded-full"
+                />
+              ) : (
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="truncate">{session.user.name || session.user.email}</div>
+            </div>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
+          </Link>
+        ) : (
+          <div className="flex items-center gap-3 text-sm text-[#8e8ea0]">
+            <div className="w-6 h-6 rounded-full bg-[#2f2f2f] flex items-center justify-center">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <span>STEM AI Assistant</span>
           </div>
-          <span>STEM AI Assistant</span>
-        </div>
+        )}
       </div>
     </div>
   );

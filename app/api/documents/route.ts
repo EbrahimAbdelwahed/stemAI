@@ -7,6 +7,47 @@ import { documents } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import pdf from 'pdf-parse';
 
+// Text sanitization function to remove problematic characters for PostgreSQL
+function sanitizeTextForDatabase(text: string): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+
+  try {
+    // Remove null bytes (0x00) and other control characters that PostgreSQL can't handle
+    let sanitized = text
+      // Remove null bytes
+      .replace(/\x00/g, '')
+      // Remove other problematic control characters but keep common ones like \n, \r, \t
+      .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      // Normalize Unicode and handle potential encoding issues
+      .normalize('NFKC')
+      // Remove any remaining problematic sequences
+      .replace(/\uFFFD/g, '') // Replace unicode replacement characters
+      .replace(/\0/g, ''); // Additional null byte cleanup
+
+    // Ensure the text is valid UTF-8 by encoding and decoding
+    const buffer = Buffer.from(sanitized, 'utf8');
+    sanitized = buffer.toString('utf8');
+
+    // Trim excessive whitespace but preserve paragraph structure
+    sanitized = sanitized
+      .replace(/\r\n/g, '\n') // Normalize line endings
+      .replace(/\r/g, '\n')
+      .replace(/\n{3,}/g, '\n\n') // Limit consecutive newlines
+      .trim();
+
+    return sanitized;
+  } catch (error) {
+    console.error('Error sanitizing text:', error);
+    // If sanitization fails, try basic cleanup
+    return text
+      .replace(/\x00/g, '')
+      .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      .trim();
+  }
+}
+
 // GET endpoint to list user's documents
 async function getDocumentsHandler(req: NextRequest) {
   try {
@@ -113,22 +154,37 @@ async function documentsHandler(req: NextRequest) {
         processingMethod = 'PDF text extraction';
         const arrayBuffer = await file.arrayBuffer();
         const pdfData = await pdf(arrayBuffer);
-        fileContent = pdfData.text;
         
-        // Additional PDF metadata could be useful
-        console.log(`PDF processed: ${pdfData.numpages} pages, ${pdfData.text.length} characters`);
+        // Clean the extracted text to remove null bytes and problematic characters
+        const rawText = pdfData.text || '';
+        fileContent = sanitizeTextForDatabase(rawText);
+        
+        // Verify that we actually extracted meaningful content
+        if (!fileContent.trim()) {
+          return NextResponse.json(
+            { 
+              error: 'No readable text could be extracted from the PDF.',
+              details: 'The PDF may be image-based, corrupted, or password-protected. Please try a different PDF or convert it to text format.'
+            },
+            { status: 400 }
+          );
+        }
+        
+        console.log(`PDF processed: ${pdfData.numpages} pages, ${rawText.length} raw characters, ${fileContent.length} cleaned characters`);
         
       } else if (file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')) {
-        // Handle text files normally
+        // Handle text files normally - also sanitize to be safe
         processingMethod = 'Text file reading';
-        fileContent = await file.text();
+        const rawText = await file.text();
+        fileContent = sanitizeTextForDatabase(rawText);
         
       } else if (file.name.toLowerCase().match(/\.(doc|docx)$/)) {
         // For now, read as text (this might not work well for binary Word docs)
         // TODO: Add proper Word document processing with mammoth.js or similar
         processingMethod = 'Document file reading (limited support)';
         try {
-          fileContent = await file.text();
+          const rawText = await file.text();
+          fileContent = sanitizeTextForDatabase(rawText);
         } catch (error) {
           return NextResponse.json(
             { 
@@ -140,9 +196,10 @@ async function documentsHandler(req: NextRequest) {
         }
         
       } else {
-        // Fallback to text reading
+        // Fallback to text reading - also sanitize
         processingMethod = 'Generic text extraction';
-        fileContent = await file.text();
+        const rawText = await file.text();
+        fileContent = sanitizeTextForDatabase(rawText);
       }
       
     } catch (extractionError) {
@@ -160,6 +217,17 @@ async function documentsHandler(req: NextRequest) {
     if (!fileContent.trim()) {
       return NextResponse.json(
         { error: 'File appears to be empty or no text could be extracted.' },
+        { status: 400 }
+      );
+    }
+
+    // Additional validation to ensure content is safe for database storage
+    if (fileContent.includes('\x00')) {
+      return NextResponse.json(
+        { 
+          error: 'Text extraction failed - file contains binary data.',
+          details: 'The extracted text contains null bytes that cannot be stored in the database. This may indicate the file is corrupted or contains binary content.'
+        },
         { status: 400 }
       );
     }
@@ -208,9 +276,12 @@ async function documentsHandler(req: NextRequest) {
       } else if (error.message.includes('OpenAI') || error.message.includes('embedding')) {
         errorMessage = 'AI processing failed';
         details = 'Please check your OPENAI_API_KEY configuration in .env.local';
-      } else if (error.message.includes('invalid byte sequence') || error.message.includes('UTF8')) {
-        errorMessage = 'File encoding issue';
-        details = 'The file contains binary data that cannot be processed as text. Please ensure the file is a valid text document or PDF.';
+      } else if (error.message.includes('invalid byte sequence') || error.message.includes('UTF8') || error.message.includes('null value') || error.message.includes('0x00')) {
+        errorMessage = 'File encoding issue - null bytes detected';
+        details = 'The file contains binary data (null bytes) that cannot be stored in PostgreSQL. This often happens with corrupted PDFs or files that contain embedded binary content. Try: 1) Re-saving the PDF, 2) Converting to a different format, or 3) Using a different PDF viewer to export as text.';
+      } else if (error.message.includes('pdf-parse') || error.message.includes('PDF')) {
+        errorMessage = 'PDF processing failed';
+        details = 'Failed to extract text from PDF. The file may be password-protected, corrupted, or contain only images. Try using a different PDF or convert it to text format first.';
       } else {
         details = error.message;
       }

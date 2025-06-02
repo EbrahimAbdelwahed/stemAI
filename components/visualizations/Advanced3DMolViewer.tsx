@@ -96,6 +96,7 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const executedRef = useRef<string>('');
   const renderedRef = useRef<boolean>(false);
+  const viewerRef = useRef<any>(null);
 
   // Create stable keys
   const moleculeKey = `${identifierType}:${identifier}`;
@@ -108,6 +109,30 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
   // Check if this molecule was already successfully rendered
   const wasSuccessfullyRendered = enhancedSuccessfullyRendered.has(cacheKey);
   const cachedMolecule = enhancedMoleculeCache.get(cacheKey);
+
+  // Add resize observer to handle container size changes
+  useEffect(() => {
+    if (!containerRef.current || !viewerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (viewerRef.current && entry.target === containerRef.current) {
+          // Resize the 3Dmol viewer when container size changes
+          setTimeout(() => {
+            if (viewerRef.current && viewerRef.current.resize) {
+              viewerRef.current.resize();
+            }
+          }, 100);
+        }
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [isLoaded]);
 
   useEffect(() => {
     // Enhanced prevention logic
@@ -175,9 +200,12 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
         const viewer = window.$3Dmol.createViewer(containerRef.current, {
           backgroundColor: backgroundColor,
           antialias: true,
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight
+          width: '100%',
+          height: '100%'
         });
+
+        // Store viewer reference for resizing
+        viewerRef.current = viewer;
 
         setStatus('Loading molecule data...');
 
@@ -328,13 +356,16 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
       // Clear container
       containerRef.current.innerHTML = '';
       
-      // Create viewer with cached background color
+      // Create viewer
       const viewer = window.$3Dmol.createViewer(containerRef.current, {
         backgroundColor: cached.backgroundColor,
         antialias: true,
-        width: containerRef.current.offsetWidth,
-        height: containerRef.current.offsetHeight
+        width: '100%',
+        height: '100%'
       });
+
+      // Store viewer reference for resizing
+      viewerRef.current = viewer;
 
       // Render from cached data with all options
       await renderAdvancedMolecule(
@@ -550,7 +581,7 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
         {selections.length > 0 && <span>Selections: {selections.length}</span>}
       </div>
       
-      <div className="bg-white rounded border border-gray-300" style={{ height: '500px', position: 'relative' }}>
+      <div className="bg-white rounded border border-gray-300 min-h-[400px] relative flex flex-col">
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
             <div className="text-center">
@@ -564,7 +595,7 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
         )}
         <div 
           ref={containerRef}
-          className="w-full h-full"
+          className="w-full flex-grow min-h-[400px]"
           style={{ backgroundColor }}
         />
       </div>
