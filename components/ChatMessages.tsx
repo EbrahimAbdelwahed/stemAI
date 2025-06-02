@@ -180,7 +180,7 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                       <StreamingMarkdown 
                         text={formatAndCleanContent(message.content)}
                         className="text-neutral-200 leading-relaxed"
-                        speed={4.5} // 4.5 words per second for natural reading flow
+                        speed={10} // 4.5 words per second for natural reading flow
                         streamingMode="word" // Word-based streaming for better UX
                       />
                     ) : (
