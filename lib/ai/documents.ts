@@ -41,6 +41,9 @@ export async function searchDocuments(query: string, limit = 5) {
   // Generate embedding for the query
   const [queryEmbedding] = await generateEmbeddings(query);
   
+  // Format the embedding as a proper vector literal for PostgreSQL
+  const embeddingVector = `[${queryEmbedding.embedding.join(',')}]`;
+  
   // Search for the most similar chunks
   const result = await db.execute(`
     SELECT 
@@ -48,7 +51,7 @@ export async function searchDocuments(query: string, limit = 5) {
       chunks.content,
       chunks.document_id,
       documents.title,
-      1 - (chunks.embedding <=> '${JSON.stringify(queryEmbedding.embedding)}') AS similarity
+      1 - (chunks.embedding <=> '${embeddingVector}'::vector) AS similarity
     FROM chunks
     JOIN documents ON chunks.document_id = documents.id
     ORDER BY similarity DESC

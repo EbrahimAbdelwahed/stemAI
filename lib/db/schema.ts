@@ -88,7 +88,7 @@ export const documents = pgTable('documents', {
 
 export const chunks = pgTable('chunks', {
   id: serial('id').primaryKey(),
-  documentId: serial('document_id').references(() => documents.id, { onDelete: 'cascade' }),
+  documentId: integer('document_id').references(() => documents.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   embedding: vector('embedding', { dimensions: 1536 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),

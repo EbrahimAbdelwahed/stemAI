@@ -79,17 +79,20 @@ export async function searchDocumentsOptimized(
   const embeddingTime = performance.now();
   console.log(`[Optimized RAG] Embedding generated in ${(embeddingTime - startTime).toFixed(2)}ms`);
   
-  // 3. Use optimized vector search with pre-filtering
+  // 3. Format the embedding as a proper vector literal for PostgreSQL
+  const embeddingVector = `[${queryEmbedding.embedding.join(',')}]`;
+  
+  // 4. Use optimized vector search with pre-filtering
   const result = await db.execute(`
     SELECT 
       chunks.id,
       chunks.content,
       chunks.document_id,
       documents.title,
-      1 - (chunks.embedding <=> '${JSON.stringify(queryEmbedding.embedding)}') AS similarity
+      1 - (chunks.embedding <=> '${embeddingVector}'::vector) AS similarity
     FROM chunks
     JOIN documents ON chunks.document_id = documents.id
-    WHERE 1 - (chunks.embedding <=> '${JSON.stringify(queryEmbedding.embedding)}') > 0.5  -- Pre-filter low similarity
+    WHERE 1 - (chunks.embedding <=> '${embeddingVector}'::vector) > 0.5  -- Pre-filter low similarity
     ORDER BY similarity DESC
     LIMIT ${limit}
   `);
@@ -106,7 +109,7 @@ export async function searchDocumentsOptimized(
     similarity: number;
   }>;
   
-  // 4. Cache results for future use
+  // 5. Cache results for future use
   ragCache.cacheResults(query, queryEmbedding.embedding, rows);
   
   const totalTime = performance.now() - startTime;

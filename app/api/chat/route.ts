@@ -434,22 +434,28 @@ async function chatHandler(req: NextRequest): Promise<Response> {
       const isSimpleQuery = detectSimpleQuery(lastUserMessage.content);
       
       if (!isSimpleQuery) {
-        console.log('RAG is enabled, searching documents for:', lastUserMessage.content.substring(0, 50) + '...');
+        console.log('[RAG] Searching documents for query:', lastUserMessage.content.substring(0, 50) + '...');
         const relevantDocs = await searchDocumentsOptimized(lastUserMessage.content, 3);
+        console.log(`[RAG] Search returned ${relevantDocs.length} relevant documents`);
+        
         if (relevantDocs && relevantDocs.length > 0) {
           context = `Here is some relevant information that may help answer the question:\n\n` +
             relevantDocs.map((doc) => {
               return `Document: \"${doc.title}\"\nContent: ${doc.content}\n`;
             }).join('\n');
+          console.log(`[RAG] Added context to system prompt, length: ${context.length} characters`);
+          console.log(`[RAG] Context preview: ${context.substring(0, 200)}...`);
+        } else {
+          console.log('[RAG] No relevant documents found for this query');
         }
       } else {
-        console.log('Simple query detected - skipping RAG for:', lastUserMessage.content.substring(0, 50) + '...');
+        console.log('[RAG] Simple query detected - skipping RAG for:', lastUserMessage.content.substring(0, 50) + '...');
       }
     } catch (error) {
-      console.error('Error searching documents (RAG enabled):', error);
+      console.error('[RAG] Error searching documents:', error);
     }
   } else if (lastUserMessage && typeof lastUserMessage.content === 'string'){
-    console.log('RAG is disabled or last user message is not suitable for search. Skipping document search.');
+    console.log('[RAG] RAG is disabled or last user message is not suitable for search. Skipping document search.');
   }
 
   const modelConfig = getModelConfig(modelId, mode);
@@ -462,6 +468,7 @@ async function chatHandler(req: NextRequest): Promise<Response> {
   console.log('[Chat API] Model:', modelId, 'Mode:', mode);
   console.log('[Chat API] Messages count:', messages.length);
   console.log('[Chat API] Last message:', messages[messages.length - 1]?.content?.toString().substring(0, 100));
+  console.log('[Chat API] RAG context included:', context.length > 0 ? `Yes (${context.length} chars)` : 'No');
   console.log('[Chat API] Available tools:', mode === 'chat' ? Object.keys(visualizationTools) : ['generateReactComponent']);
   console.log('[Chat API] System prompt includes:', systemPromptWithContext.includes('displayMolecule3D') ? 'displayMolecule3D instructions' : 'no tool instructions');
 
