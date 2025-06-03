@@ -51,7 +51,7 @@ function ErrorContent() {
               Configuration Error Troubleshooting:
             </h4>
             <ul className="text-sm text-yellow-700 space-y-1">
-              <li>• Check GITHUB_ID and GITHUB_SECRET environment variables</li>
+              <li>• Check AUTH_GITHUB_ID and AUTH_GITHUB_SECRET environment variables</li>
               <li>• Verify NEXTAUTH_URL is set to: https://stem-ai.vercel.app</li>
               <li>• Ensure NEXTAUTH_SECRET is set</li>
               <li>• Confirm GitHub OAuth callback URL: https://stem-ai.vercel.app/api/auth/callback/github</li>

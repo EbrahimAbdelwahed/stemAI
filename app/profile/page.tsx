@@ -2,6 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Typography } from '@/components/ui/Typography'
 import { Card } from '@/components/ui/Card'
@@ -18,6 +19,14 @@ interface ConversationSummary {
   isArchived: boolean
 }
 
+interface UserDocument {
+  id: number
+  title: string
+  isPublic: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 interface UserStats {
   totalConversations: number
   totalMessages: number
@@ -28,60 +37,87 @@ interface UserStats {
 
 export default function ProfilePage() {
   const { data: session, status } = useSession()
+  const router = useRouter()
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
+  const [documents, setDocuments] = useState<UserDocument[]>([])
   const [stats, setStats] = useState<UserStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user?.id) {
       fetchUserData()
+    } else if (status !== 'loading') {
+      setIsLoading(false)
     }
-  }, [session])
+  }, [session, status])
 
   const fetchUserData = async () => {
     try {
       setIsLoading(true)
-      // TODO: Implement API calls to fetch user data
-      // For now, using mock data
-      const mockStats: UserStats = {
-        totalConversations: 12,
-        totalMessages: 156,
-        favoriteModel: 'gpt-4',
-        joinDate: '2024-01-15',
-        lastActive: new Date().toISOString()
+      setError(null)
+
+      // Fetch conversations
+      const conversationsResponse = await fetch('/api/conversations')
+      if (conversationsResponse.ok) {
+        const conversationsData = await conversationsResponse.json()
+        
+        // Transform conversation data to include message counts
+        const conversationSummaries: ConversationSummary[] = await Promise.all(
+          conversationsData.conversations.map(async (conv: any) => {
+            try {
+              const messagesResponse = await fetch(`/api/conversations/${conv.id}`)
+              const messagesData = await messagesResponse.json()
+              return {
+                id: conv.id,
+                title: conv.title,
+                model: conv.model,
+                messageCount: messagesData.conversation?.messages?.length || 0,
+                lastActivity: conv.updatedAt,
+                isArchived: conv.isArchived || false
+              }
+            } catch {
+              return {
+                id: conv.id,
+                title: conv.title,
+                model: conv.model,
+                messageCount: 0,
+                lastActivity: conv.updatedAt,
+                isArchived: conv.isArchived || false
+              }
+            }
+          })
+        )
+        setConversations(conversationSummaries)
       }
 
-      const mockConversations: ConversationSummary[] = [
-        {
-          id: '1',
-          title: 'Quantum Physics Discussion',
-          model: 'gpt-4',
-          messageCount: 23,
-          lastActivity: '2024-01-20T10:30:00Z',
-          isArchived: false
-        },
-        {
-          id: '2',
-          title: 'Molecular Structure Analysis',
-          model: 'claude-3',
-          messageCount: 15,
-          lastActivity: '2024-01-19T14:22:00Z',
-          isArchived: false
-        },
-        {
-          id: '3',
-          title: 'Chemistry Lab Help',
-          model: 'gpt-4',
-          messageCount: 8,
-          lastActivity: '2024-01-18T09:15:00Z',
-          isArchived: true
-        }
-      ]
+      // Fetch documents
+      const documentsResponse = await fetch('/api/documents')
+      if (documentsResponse.ok) {
+        const documentsData = await documentsResponse.json()
+        setDocuments(documentsData.documents || [])
+      }
 
-      setStats(mockStats)
-      setConversations(mockConversations)
+      // Calculate stats from fetched data
+      const totalMessages = conversations.reduce((sum, conv) => sum + conv.messageCount, 0)
+      const modelCounts = conversations.reduce((acc: Record<string, number>, conv) => {
+        acc[conv.model] = (acc[conv.model] || 0) + 1
+        return acc
+      }, {})
+      const favoriteModel = Object.entries(modelCounts).sort(([,a], [,b]) => b - a)[0]?.[0] || 'gpt-4o'
+
+      const userStats: UserStats = {
+        totalConversations: conversations.length,
+        totalMessages,
+        favoriteModel,
+        joinDate: new Date().toISOString(),
+        lastActive: conversations[0]?.lastActivity || new Date().toISOString()
+      }
+      setStats(userStats)
+
     } catch (error) {
       console.error('Failed to fetch user data:', error)
+      setError('Failed to load user data. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -104,6 +140,24 @@ export default function ProfilePage() {
     if (diffInHours < 24) return `${diffInHours}h ago`
     if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`
     return formatDate(dateString)
+  }
+
+  const handleDeleteDocument = async (documentId: number) => {
+    try {
+      const response = await fetch(`/api/documents/${documentId}`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        setDocuments(documents.filter(doc => doc.id !== documentId))
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || 'Failed to delete document')
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error)
+      setError('Failed to delete document')
+    }
   }
 
   if (status === 'loading') {
@@ -146,35 +200,49 @@ export default function ProfilePage() {
             <Typography variant="h1" className="text-white">
               Profile
             </Typography>
-            <Button variant="outline" size="sm">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Settings
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => router.push('/')}
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                Home
+              </Button>
+              <Button variant="outline" size="sm">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Settings
+              </Button>
+            </div>
           </div>
           
           {/* User Info Card */}
           <Card className="bg-neutral-900 border-neutral-800">
             <div className="p-6">
-              <div className="flex items-center space-x-4">
-                <UserAvatar size="lg" />
-                <div className="flex-1">
-                  <Typography variant="h3" className="text-white mb-1">
-                    {session.user.name || 'User'}
-                  </Typography>
-                  <Typography variant="muted" className="text-neutral-400 mb-2">
-                    {session.user.email}
-                  </Typography>
-                  <div className="flex items-center space-x-4 text-sm text-neutral-500">
-                    <span>Joined {stats ? formatDate(stats.joinDate) : 'Recently'}</span>
-                    <span>•</span>
-                    <span>Last active {stats ? formatRelativeTime(stats.lastActive) : 'Recently'}</span>
+              <div className="flex flex-col md:flex-row md:items-center gap-4">
+                <div className="flex items-center gap-4 flex-1">
+                  <UserAvatar size="lg" />
+                  <div className="flex-1 min-w-0">
+                    <Typography variant="h3" className="text-white mb-1">
+                      {session.user.name || 'User'}
+                    </Typography>
+                    <Typography variant="muted" className="text-neutral-400 mb-2">
+                      {session.user.email}
+                    </Typography>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-neutral-500">
+                      <span>Joined {stats ? formatDate(stats.joinDate) : 'Recently'}</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span>Last active {stats ? formatRelativeTime(stats.lastActive) : 'Recently'}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <Badge variant="secondary" className="mb-2">
+                <div className="flex flex-col items-start md:items-end gap-2">
+                  <Badge variant="secondary">
                     Pro User
                   </Badge>
                   <Typography variant="small" className="text-neutral-400">
@@ -186,9 +254,30 @@ export default function ProfilePage() {
           </Card>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6">
+            <Card className="bg-red-900/20 border-red-800">
+              <div className="p-4">
+                <Typography variant="small" className="text-red-400">
+                  {error}
+                </Typography>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2"
+                  onClick={fetchUserData}
+                >
+                  Retry
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Stats Cards */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <Card className="bg-neutral-900 border-neutral-800">
               <div className="p-4 text-center">
                 <Typography variant="h2" className="text-blue-400 mb-1">
@@ -211,7 +300,7 @@ export default function ProfilePage() {
             </Card>
             <Card className="bg-neutral-900 border-neutral-800">
               <div className="p-4 text-center">
-                <Typography variant="h2" className="text-purple-400 mb-1">
+                <Typography variant="h2" className="text-purple-400 mb-1 break-all">
                   {stats.favoriteModel}
                 </Typography>
                 <Typography variant="small" className="text-neutral-400">
@@ -222,10 +311,10 @@ export default function ProfilePage() {
             <Card className="bg-neutral-900 border-neutral-800">
               <div className="p-4 text-center">
                 <Typography variant="h2" className="text-orange-400 mb-1">
-                  24/7
+                  {documents.length}
                 </Typography>
                 <Typography variant="small" className="text-neutral-400">
-                  Availability
+                  Documents
                 </Typography>
               </div>
             </Card>
@@ -243,12 +332,16 @@ export default function ProfilePage() {
           <TabsContent value="conversations" className="mt-6">
             <Card className="bg-neutral-900 border-neutral-800">
               <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                   <Typography variant="h4" className="text-white">
                     Recent Conversations
                   </Typography>
-                  <Button variant="outline" size="sm">
-                    View All
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => router.push('/chat')}
+                  >
+                    Start New Chat
                   </Button>
                 </div>
                 
@@ -263,28 +356,29 @@ export default function ProfilePage() {
                     {conversations.map((conversation) => (
                       <div
                         key={conversation.id}
-                        className="flex items-center justify-between p-4 bg-neutral-800 rounded-lg hover:bg-neutral-750 transition-colors cursor-pointer"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-neutral-800 rounded-lg hover:bg-neutral-750 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/chat/${conversation.id}`)}
                       >
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <Typography variant="small" className="text-white font-medium">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                            <Typography variant="small" className="text-white font-medium truncate">
                               {conversation.title}
                             </Typography>
                             {conversation.isArchived && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs w-fit">
                                 Archived
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center space-x-4 text-xs text-neutral-400">
-                            <span>{conversation.model}</span>
-                            <span>•</span>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-neutral-400">
+                            <span className="break-all">{conversation.model}</span>
+                            <span className="hidden sm:inline">•</span>
                             <span>{conversation.messageCount} messages</span>
-                            <span>•</span>
+                            <span className="hidden sm:inline">•</span>
                             <span>{formatRelativeTime(conversation.lastActivity)}</span>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" className="mt-2 sm:mt-0 self-end sm:self-center">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
@@ -305,7 +399,10 @@ export default function ProfilePage() {
                     <Typography variant="muted" className="text-neutral-400 mb-4">
                       Start chatting to see your conversation history here.
                     </Typography>
-                    <Button variant="primary">
+                    <Button 
+                      variant="primary"
+                      onClick={() => router.push('/chat')}
+                    >
                       Start New Chat
                     </Button>
                   </div>
@@ -317,25 +414,85 @@ export default function ProfilePage() {
           <TabsContent value="documents" className="mt-6">
             <Card className="bg-neutral-900 border-neutral-800">
               <div className="p-6">
-                <Typography variant="h4" className="text-white mb-4">
-                  Uploaded Documents
-                </Typography>
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-neutral-800 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <Typography variant="large" className="text-neutral-300 mb-2">
-                    No documents uploaded
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <Typography variant="h4" className="text-white">
+                    Uploaded Documents
                   </Typography>
-                  <Typography variant="muted" className="text-neutral-400 mb-4">
-                    Upload documents to enhance your AI conversations.
-                  </Typography>
-                  <Button variant="outline">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => router.push('/chat')}
+                  >
                     Upload Document
                   </Button>
                 </div>
+
+                {isLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-16 bg-neutral-800 rounded-lg animate-pulse" />
+                    ))}
+                  </div>
+                ) : documents.length > 0 ? (
+                  <div className="space-y-3">
+                    {documents.map((document) => (
+                      <div
+                        key={document.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-neutral-800 rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                            <Typography variant="small" className="text-white font-medium truncate">
+                              {document.title}
+                            </Typography>
+                            {document.isPublic && (
+                              <Badge variant="secondary" className="text-xs w-fit">
+                                Public
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-neutral-400">
+                            <span>Uploaded {formatRelativeTime(document.createdAt)}</span>
+                            <span className="hidden sm:inline">•</span>
+                            <span>Modified {formatRelativeTime(document.updatedAt)}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-2 sm:mt-0">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteDocument(document.id)}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-neutral-800 flex items-center justify-center">
+                      <svg className="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <Typography variant="large" className="text-neutral-300 mb-2">
+                      No documents uploaded
+                    </Typography>
+                    <Typography variant="muted" className="text-neutral-400 mb-4">
+                      Upload documents to enhance your AI conversations.
+                    </Typography>
+                    <Button 
+                      variant="outline"
+                      onClick={() => router.push('/chat')}
+                    >
+                      Upload Document
+                    </Button>
+                  </div>
+                )}
               </div>
             </Card>
           </TabsContent>
@@ -348,8 +505,8 @@ export default function ProfilePage() {
                     Account Settings
                   </Typography>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex-1">
                         <Typography variant="small" className="text-white font-medium">
                           Email Notifications
                         </Typography>
@@ -357,12 +514,12 @@ export default function ProfilePage() {
                           Receive updates about your conversations
                         </Typography>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className="w-fit">
                         Configure
                       </Button>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex-1">
                         <Typography variant="small" className="text-white font-medium">
                           Data Export
                         </Typography>
@@ -370,12 +527,12 @@ export default function ProfilePage() {
                           Download your conversation history
                         </Typography>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className="w-fit">
                         Export
                       </Button>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex-1">
                         <Typography variant="small" className="text-red-400 font-medium">
                           Delete Account
                         </Typography>
@@ -383,7 +540,7 @@ export default function ProfilePage() {
                           Permanently delete your account and data
                         </Typography>
                       </div>
-                      <Button variant="destructive" size="sm">
+                      <Button variant="destructive" size="sm" className="w-fit">
                         Delete
                       </Button>
                     </div>

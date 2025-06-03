@@ -10,9 +10,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 interface ChatSidebarProps {
   currentConversationId?: string;
+  onClose?: () => void;
 }
 
-export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
+export function ChatSidebar({ currentConversationId, onClose }: ChatSidebarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
   const { data: session } = useSession();
@@ -72,6 +73,21 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
     <div className="w-[280px] bg-[#171717] border-r border-[#4d4d4d] flex flex-col h-full">
       {/* Header */}
       <div className="p-3 border-b border-[#4d4d4d]">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium text-white">STEM AI</span>
+          {/* Mobile close button */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="md:hidden p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-[#2f2f2f] transition-colors"
+              aria-label="Close sidebar"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
         <button
           onClick={handleNewChat}
           disabled={isLoading}
@@ -87,25 +103,41 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
       {/* Navigation */}
       <div className="p-3 border-b border-[#4d4d4d]">
         <nav className="space-y-1">
-          <Link href="/" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm">
+          <Link 
+            href="/" 
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm"
+            onClick={onClose}
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
             Home
           </Link>
-          <Link href="/chat" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm">
+          <Link 
+            href="/chat" 
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm"
+            onClick={onClose}
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
             Chat
           </Link>
-          <Link href="/documents" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm">
+          <Link 
+            href="/documents" 
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm"
+            onClick={onClose}
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
             Libreria
           </Link>
-          <Link href="/generate" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm">
+          <Link 
+            href="/generate" 
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm"
+            onClick={onClose}
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
@@ -166,7 +198,7 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
       {/* User Profile Section */}
       <div className="border-t border-[#4d4d4d] p-3">
         {session?.user ? (
-          <Link href="/profile" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm text-[#8e8ea0] hover:text-white">
+          <Link href="/profile" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm text-[#8e8ea0] hover:text-white" onClick={onClose}>
             <div className="w-6 h-6 rounded-full bg-[#2f2f2f] flex items-center justify-center">
               {session.user.image ? (
                 <img 

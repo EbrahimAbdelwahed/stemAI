@@ -1,14 +1,22 @@
 import NextAuth from "next-auth"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import authConfig from "./auth.config"
-import { db } from "@/lib/db"
+import { db, users, accounts, sessions, verificationTokens } from "@/lib/db"
 
 // Only use DrizzleAdapter if database is available
 const authOptions = {
-  ...(db ? { adapter: DrizzleAdapter(db) } : {}),
+  ...(db ? { 
+    adapter: DrizzleAdapter(db, {
+      usersTable: users,
+      accountsTable: accounts,
+      sessionsTable: sessions,
+      verificationTokensTable: verificationTokens,
+    })
+  } : {}),
   session: { strategy: "jwt" as const },
   ...authConfig,
   callbacks: {
+    ...authConfig.callbacks,
     session({ session, token }) {
       if (token.sub && session.user) {
         session.user.id = token.sub
