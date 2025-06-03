@@ -228,16 +228,18 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-4 flex-1">
                   <UserAvatar size="lg" />
                   <div className="flex-1 min-w-0">
-                    <Typography variant="h3" className="text-white mb-4">
-                      {session.user.name || 'User'}
-                    </Typography>
-                    <Typography variant="muted" className="text-neutral-400 mb-5">
-                      {session.user.email}
-                    </Typography>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-neutral-500">
-                      <span>Joined {stats ? formatDate(stats.joinDate) : 'Recently'}</span>
-                      <span className="hidden sm:inline">•</span>
-                      <span>Last active {stats ? formatRelativeTime(stats.lastActive) : 'Recently'}</span>
+                    <div className="space-y-3">
+                      <Typography variant="h3" className="text-white leading-tight">
+                        {session.user.name || 'User'}
+                      </Typography>
+                      <Typography variant="muted" className="text-neutral-400 leading-relaxed">
+                        {session.user.email}
+                      </Typography>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-neutral-500 pt-2">
+                        <span>Joined {stats ? formatDate(stats.joinDate) : 'Recently'}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span>Last active {stats ? formatRelativeTime(stats.lastActive) : 'Recently'}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

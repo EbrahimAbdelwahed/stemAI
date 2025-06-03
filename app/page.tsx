@@ -153,12 +153,14 @@ export default function Home() {
                 { name: 'Claude', desc: 'Scientific accuracy' }
               ].map((tech) => (
                 <Card key={tech.name} className="p-6 text-center bg-neutral-900/50 border-neutral-800">
-                  <Typography variant="small" className="font-semibold text-neutral-200 mb-3">
-                    {tech.name}
-                  </Typography>
-                  <Typography variant="small" className="text-neutral-400">
-                    {tech.desc}
-                  </Typography>
+                  <div className="space-y-2">
+                    <Typography variant="small" className="font-semibold text-neutral-200 leading-tight">
+                      {tech.name}
+                    </Typography>
+                    <Typography variant="small" className="text-neutral-400 leading-relaxed">
+                      {tech.desc}
+                    </Typography>
+                  </div>
                 </Card>
               ))}
             </div>

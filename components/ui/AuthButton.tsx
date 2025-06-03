@@ -144,12 +144,14 @@ export function UserMenu({ className }: UserMenuProps) {
       >
         <UserAvatar size="sm" />
         <div className="hidden sm:block text-left">
-          <Typography variant="small" className="text-neutral-200 font-medium mb-1">
-            {session.user.name || 'User'}
-          </Typography>
-          <Typography variant="small" className="text-neutral-400">
-            {session.user.email}
-          </Typography>
+          <div className="space-y-1">
+            <Typography variant="small" className="text-neutral-200 font-medium leading-tight">
+              {session.user.name || 'User'}
+            </Typography>
+            <Typography variant="small" className="text-neutral-400 leading-tight">
+              {session.user.email}
+            </Typography>
+          </div>
         </div>
         <svg
           className={`w-4 h-4 text-neutral-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -193,4 +195,4 @@ export function UserMenu({ className }: UserMenuProps) {
       )}
     </div>
   )
-} 
+}

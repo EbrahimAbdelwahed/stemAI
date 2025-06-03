@@ -465,3 +465,118 @@ investigation:
   test_coverage: "Comprehensive with edge cases"
   false_positive_risk: "LOW (multiple validation layers)"
   statistical_validity: "STRONG (multiple iterations, averaging, validation)"
+
+---
+
+## Typography and Text Spacing Best Practices
+
+### Issue: Text Cramping and Poor Hierarchy
+
+**Problem Identified:** When using Tailwind CSS Typography components, relying solely on `margin-bottom` (e.g., `mb-2`, `mb-3`) classes can lead to:
+- Cramped text appearance with insufficient spacing
+- Poor visual hierarchy between related text elements  
+- Inconsistent spacing across different components
+- Conflicts with Typography component default styles
+
+### Solution: Modern Tailwind Text Stacking
+
+**Recommended Approach:** Use semantic spacing utilities designed for text stacking:
+
+#### 1. Space-Y Utilities for Vertical Rhythm
+```tsx
+// ❌ AVOID: Direct margin-bottom approach
+<Typography variant="h3" className="text-white mb-2">
+  {userName}
+</Typography>
+<Typography variant="muted" className="text-neutral-400 mb-3">
+  {userEmail}
+</Typography>
+
+// ✅ PREFERRED: Space-y container approach
+<div className="space-y-3">
+  <Typography variant="h3" className="text-white leading-tight">
+    {userName}
+  </Typography>
+  <Typography variant="muted" className="text-neutral-400 leading-relaxed">
+    {userEmail}
+  </Typography>
+</div>
+```
+
+#### 2. Leading (Line Height) for Text Flow
+- **`leading-tight`**: For headings and primary text to create compact, crisp appearance
+- **`leading-relaxed`**: For secondary text and descriptions to improve readability
+- **`leading-normal`**: Default for body text
+
+#### 3. Context-Appropriate Spacing Values
+- **`space-y-1`**: Compact dropdowns and menus (0.25rem spacing)
+- **`space-y-2`**: Small cards and compact components (0.5rem spacing)  
+- **`space-y-3`**: Standard content spacing (0.75rem spacing)
+- **`space-y-4`**: Generous spacing for important sections (1rem spacing)
+- **`space-y-5`**: Large section separation (1.25rem spacing)
+
+#### 4. Implementation Examples
+
+**User Profile Card:**
+```tsx
+<div className="space-y-3">
+  <Typography variant="h3" className="text-white leading-tight">
+    {session.user.name || 'User'}
+  </Typography>
+  <Typography variant="muted" className="text-neutral-400 leading-relaxed">
+    {session.user.email}
+  </Typography>
+  <div className="flex gap-4 text-sm text-neutral-500 pt-2">
+    <span>Joined {formatDate(stats.joinDate)}</span>
+    <span>Last active {formatRelativeTime(stats.lastActive)}</span>
+  </div>
+</div>
+```
+
+**User Menu Dropdown:**
+```tsx
+<div className="space-y-1">
+  <Typography variant="small" className="text-neutral-200 font-medium leading-tight">
+    {session.user.name || 'User'}
+  </Typography>
+  <Typography variant="small" className="text-neutral-400 leading-tight">
+    {session.user.email}
+  </Typography>
+</div>
+```
+
+**Technology Cards:**
+```tsx
+<div className="space-y-2">
+  <Typography variant="small" className="font-semibold text-neutral-200 leading-tight">
+    {tech.name}
+  </Typography>
+  <Typography variant="small" className="text-neutral-400 leading-relaxed">
+    {tech.desc}
+  </Typography>
+</div>
+```
+
+### Benefits of This Approach
+
+1. **Semantic Spacing**: Uses Tailwind utilities designed specifically for text stacking
+2. **Consistent Rhythm**: `space-y` creates uniform vertical spacing between all child elements
+3. **Typography-Friendly**: Works harmoniously with component defaults rather than overriding them
+4. **Responsive Design**: Spacing scales appropriately across different screen sizes
+5. **Better Hierarchy**: Combined with `leading-*` classes, creates clear visual relationships
+
+### Key Learnings
+
+- **Avoid margin-bottom conflicts**: Typography components may have internal spacing that conflicts with external margins
+- **Wrap related text**: Use containers with `space-y-*` for semantically related text elements
+- **Combine with line height**: Use `leading-*` utilities to fine-tune text appearance
+- **Context matters**: Choose spacing values appropriate to the component size and importance
+- **Follow Tailwind patterns**: This approach aligns with [Tailwind CSS Typography best practices](https://github.com/tailwindlabs/tailwindcss-typography/blob/main/README.md)
+
+### Applied Locations in STEM AI Assistant
+
+1. **Homepage** (`app/page.tsx`): AI technology grid cards
+2. **Profile Page** (`app/profile/page.tsx`): User information section  
+3. **AuthButton Component** (`components/ui/AuthButton.tsx`): User menu dropdown
+
+This pattern should be consistently applied across all new components and used when refactoring existing text-heavy UI elements.
