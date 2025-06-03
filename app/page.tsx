@@ -14,19 +14,19 @@ export default function Home() {
   return (
     <AppLayout showSidebar={false}>
       <div className="flex-1 bg-neutral-950 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24">
           
           {/* Hero Section */}
-          <div className="text-center mb-16">
+          <div className="text-center mb-20 sm:mb-24">
             {/* Logo/Icon */}
-            <div className="mb-8 flex justify-center">
+            <div className="mb-10 sm:mb-12 flex justify-center">
               <div className="relative group">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
-                <div className="relative bg-neutral-900 p-4 rounded-full border border-neutral-700 group-hover:border-blue-500/50 transition-colors duration-300">
+                <div className="relative bg-neutral-900 p-6 rounded-full border border-neutral-700 group-hover:border-blue-500/50 transition-colors duration-300">
                   <svg 
                     xmlns="http://www.w3.org/2000/svg" 
-                    width="48" 
-                    height="48" 
+                    width="56" 
+                    height="56" 
                     viewBox="0 0 24 24" 
                     fill="none" 
                     stroke="currentColor" 
@@ -42,20 +42,20 @@ export default function Home() {
             </div>
             
             <Heading1 
-              className="mb-6 text-neutral-100"
+              className="mb-8 text-neutral-100"
               gradient
             >
               STEM AI Assistant
             </Heading1>
             
-            <Lead className="max-w-3xl mx-auto mb-8 text-neutral-300">
+            <Lead className="max-w-3xl mx-auto mb-12 text-neutral-300">
               A powerful AI assistant for STEM learning, featuring advanced document analysis, 
               real-time chat capabilities, and intelligent problem-solving tools.
             </Lead>
 
             {/* Auth Section */}
             {!session ? (
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
                 <AuthButton variant="primary" size="lg" />
                 <Link 
                   href="/chat"
@@ -65,7 +65,7 @@ export default function Home() {
                 </Link>
               </div>
             ) : (
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
                 <Link 
                   href="/chat"
                   className="inline-flex items-center justify-center px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 text-base font-medium"
@@ -79,7 +79,7 @@ export default function Home() {
             )}
 
             {/* Feature highlights */}
-            <div className="flex flex-wrap justify-center gap-3 mb-16">
+            <div className="flex flex-wrap justify-center gap-4 mb-20">
               {[
                 'RAG Document Analysis',
                 'Multi-Model AI Support', 
@@ -88,7 +88,7 @@ export default function Home() {
               ].map((feature) => (
                 <div 
                   key={feature}
-                  className="px-4 py-2 bg-neutral-800/50 border border-neutral-700 rounded-full text-sm text-neutral-300 hover:bg-neutral-700/50 hover:border-neutral-600 transition-colors duration-300"
+                  className="px-5 py-3 bg-neutral-800/50 border border-neutral-700 rounded-full text-sm text-neutral-300 hover:bg-neutral-700/50 hover:border-neutral-600 transition-colors duration-300"
                 >
                   {feature}
                 </div>
@@ -97,9 +97,9 @@ export default function Home() {
           </div>
 
           {/* Conway's Game of Life - Terminal Centerpiece */}
-          <div className="mb-16">
-            <div className="text-center mb-8">
-              <Typography variant="h2" className="text-neutral-100 mb-4">
+          <div className="mb-20 sm:mb-24">
+            <div className="text-center mb-10 sm:mb-12">
+              <Typography variant="h2" className="text-neutral-100 mb-6">
                 Live System Demonstration
               </Typography>
               <Typography variant="p" className="text-neutral-400 max-w-2xl mx-auto">
@@ -118,7 +118,7 @@ export default function Home() {
           </div>
 
           {/* Main Feature Card */}
-          <div className="max-w-2xl mx-auto mb-16">
+          <div className="max-w-2xl mx-auto mb-20 sm:mb-24">
             <FeatureCard
               title="STEM AI Chat"
               description="Ask questions about science, technology, engineering, and mathematics. Get detailed explanations, solve complex problems, upload documents for analysis, and explore scientific concepts with our advanced RAG-powered AI assistant."
@@ -135,9 +135,9 @@ export default function Home() {
           </div>
 
           {/* Technologies Grid */}
-          <div className="mb-16">
-            <div className="text-center mb-8">
-              <Typography variant="h3" className="text-neutral-100 mb-4">
+          <div className="mb-20 sm:mb-24">
+            <div className="text-center mb-10 sm:mb-12">
+              <Typography variant="h3" className="text-neutral-100 mb-6">
                 Powered by Advanced AI
               </Typography>
               <Typography variant="p" className="text-neutral-400 max-w-2xl mx-auto">
@@ -145,15 +145,15 @@ export default function Home() {
               </Typography>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
               {[
                 { name: 'Grok AI', desc: 'Real-time reasoning' },
                 { name: 'Gemini', desc: 'Multimodal analysis' },
                 { name: 'GPT-4', desc: 'Advanced language' },
                 { name: 'Claude', desc: 'Scientific accuracy' }
               ].map((tech) => (
-                <Card key={tech.name} className="p-4 text-center bg-neutral-900/50 border-neutral-800">
-                  <Typography variant="small" className="font-semibold text-neutral-200 mb-1">
+                <Card key={tech.name} className="p-6 text-center bg-neutral-900/50 border-neutral-800">
+                  <Typography variant="small" className="font-semibold text-neutral-200 mb-3">
                     {tech.name}
                   </Typography>
                   <Typography variant="small" className="text-neutral-400">
@@ -166,16 +166,16 @@ export default function Home() {
 
           {/* Final CTA */}
           <div className="text-center">
-            <Typography variant="h3" className="mb-4 text-neutral-200">
+            <Typography variant="h3" className="mb-6 text-neutral-200">
               Ready to accelerate your STEM learning?
             </Typography>
-            <Typography variant="p" className="text-neutral-400 mb-8 max-w-2xl mx-auto">
+            <Typography variant="p" className="text-neutral-400 mb-10 max-w-2xl mx-auto">
               Join researchers, students, and educators using AI to enhance their understanding 
               of science and technology.
             </Typography>
             <Link 
               href="/chat"
-              className="inline-flex items-center justify-center px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 text-lg font-medium transform hover:scale-105"
+              className="inline-flex items-center justify-center px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 text-lg font-medium transform hover:scale-105"
             >
               Get Started
               <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

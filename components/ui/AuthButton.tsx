@@ -144,7 +144,7 @@ export function UserMenu({ className }: UserMenuProps) {
       >
         <UserAvatar size="sm" />
         <div className="hidden sm:block text-left">
-          <Typography variant="small" className="text-neutral-200 font-medium">
+          <Typography variant="small" className="text-neutral-200 font-medium mb-1">
             {session.user.name || 'User'}
           </Typography>
           <Typography variant="small" className="text-neutral-400">
