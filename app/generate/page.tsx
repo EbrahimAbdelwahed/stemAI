@@ -9,7 +9,7 @@ import ConversationView from '../../components/ConversationView';
 import CodePreview from '../../components/CodePreview';
 import { RealDataCollector } from '../../lib/analytics/real-data-collector';
 
-type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest';
+type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'o4-mini';
 
 export default function GeneratePage() {
   const [selectedModel, setSelectedModel] = useState<ModelType>('grok-3-mini');
@@ -108,7 +108,7 @@ export default function GeneratePage() {
     append({
       id: Date.now().toString(),
       role: 'assistant',
-      content: `Switching to ${model === 'grok-3-mini' ? 'Grok-3-Mini' : 'Gemini 2.0 Flash'} model. Describe a component you want me to create.`
+      content: `Switching to ${model === 'grok-3-mini' ? 'Grok-3-Mini' : model === 'gemini-1.5-flash-latest' ? 'Gemini 2.0 Flash' : 'O4-Mini'} model. Describe a component you want me to create.`
     });
 
     // Track model change event

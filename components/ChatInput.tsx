@@ -20,6 +20,7 @@ const models = [
   { id: 'gemini-1.5-flash-latest', name: 'Gemini Flash', icon: '💎' },
   { id: 'gpt-4o', name: 'GPT-4o', icon: '🧠' },
   { id: 'claude-3-haiku-20240307', name: 'Claude Haiku', icon: '🌸' },
+  { id: 'o4-mini', name: 'o4-mini', icon: '🔮' },
 ];
 
 export default function ChatInput({
