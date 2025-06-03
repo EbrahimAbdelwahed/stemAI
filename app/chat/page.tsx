@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useChat, Message as VercelMessage } from '@ai-sdk/react';
 import ChatInput from '../../components/ChatInput';
 import ChatMessages from '../../components/ChatMessages';
@@ -86,6 +86,11 @@ export default function ChatPage() {
     trackError(err, 'ChatPage', true);
   }, [selectedModel]);
 
+  // Create reactive body object for useChat
+  const chatBody = useMemo(() => ({
+    model: selectedModel,
+  }), [selectedModel]);
+
   const { 
     messages, 
     input, 
@@ -99,10 +104,8 @@ export default function ChatPage() {
     append 
   } = useChat({
     api: '/api/chat',
-    body: {
-      model: selectedModel,
-    },
-    id: chatId, 
+    body: chatBody,
+    id: chatId,
     onFinish: onFinishHandler,
     onError: onErrorHandler,
   });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useChat } from '@ai-sdk/react';
 import SplitPane from '../../components/SplitPane';
 import NavBar from '../../components/NavBar';
@@ -25,6 +25,12 @@ export default function GeneratePage() {
     timestamp: string;
   }[]>([]);
   
+  // Create reactive body object for useChat
+  const chatBody = useMemo(() => ({
+    model: selectedModel,
+    mode: 'generate'
+  }), [selectedModel]);
+  
   // Use the chat hook
   const { 
     messages, 
@@ -39,10 +45,7 @@ export default function GeneratePage() {
     append
   } = useChat({
     api: '/api/chat',
-    body: {
-      model: selectedModel,
-      mode: 'generate'
-    },
+    body: chatBody,
     id: 'stem-ai-generate',
     initialMessages: [
       {

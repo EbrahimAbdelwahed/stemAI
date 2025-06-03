@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useChat, Message as VercelMessage } from '@ai-sdk/react';
@@ -49,6 +49,12 @@ export default function ConversationPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [sessionStartTime] = useState<number>(Date.now());
   const realDataCollector = RealDataCollector.getInstance();
+
+  // Create reactive body object for useChat
+  const chatBody = useMemo(() => ({
+    model: selectedModel,
+    conversationId: conversationId,
+  }), [selectedModel, conversationId]);
 
   const onFinishHandler = useCallback((message: Message) => {
     console.log('[ConversationPage] onFinish called with message:', message);
@@ -114,10 +120,7 @@ export default function ConversationPage() {
     append 
   } = useChat({
     api: '/api/chat',
-    body: {
-      model: selectedModel,
-      conversationId: conversationId, // Pass conversation ID to API
-    },
+    body: chatBody,
     id: conversationId,
     onFinish: onFinishHandler,
     onError: onErrorHandler,
