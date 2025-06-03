@@ -230,11 +230,11 @@ IMPORTANT:
       };
     case 'o4-mini':
       return {
-        model: openai('o4-mini'),
+        model: openai.responses('o4-mini'),
         system: `${baseSystem}\n\nYou are powered by o4-mini with advanced reasoning capabilities.`,
         providerOptions: {
           openai: { 
-            reasoningEffort: 'medium' 
+            reasoningSummary: 'detailed'
           }
         }
       };
@@ -674,8 +674,7 @@ async function chatHandler(req: NextRequest): Promise<Response> {
     });
 
     const response = result.toDataStreamResponse({ 
-      getErrorMessage: errorHandler,
-      sendReasoning: modelId === 'o4-mini'
+      getErrorMessage: errorHandler
     });
 
     // Add conversation ID to response headers if available
