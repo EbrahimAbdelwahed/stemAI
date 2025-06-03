@@ -61,6 +61,7 @@ export default function NavBar({ selectedModel, onModelChange, onNewChat }: NavB
           <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash</option>
           <option value="gpt-4o">GPT-4o</option>
           <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+          <option value="o4-mini">o4-mini</option>
         </select>
         
         <div className="flex items-center border-l border-gray-700 pl-3 ml-2">

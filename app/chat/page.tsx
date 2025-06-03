@@ -22,7 +22,7 @@ import { ChatMainArea } from '../../components/chat/ChatMainArea';
 // The SDK's Message type should include toolInvocations for Vercel AI SDK v3+.
 type Message = VercelMessage;
 
-type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307';
+type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307' | 'o4-mini';
 
 const LOCAL_STORAGE_CHAT_ID_KEY = 'stem-ai-chat-id';
 const LOCAL_STORAGE_MESSAGES_KEY_PREFIX = 'stem-ai-chat-messages-';

@@ -228,6 +228,16 @@ IMPORTANT:
         model: openai('gpt-4o'),
         system: `${baseSystem}\n\nYou are powered by GPT-4o.`,
       };
+    case 'o4-mini':
+      return {
+        model: openai('o4-mini'),
+        system: `${baseSystem}\n\nYou are powered by o4-mini with advanced reasoning capabilities.`,
+        providerOptions: {
+          openai: { 
+            reasoningEffort: 'medium' 
+          }
+        }
+      };
     default:
       // For Grok models that don't support native tool calling, we use special tokens
       const grokSystem = baseSystem.replace(
@@ -519,6 +529,7 @@ async function chatHandler(req: NextRequest): Promise<Response> {
           }
         }
       } : visualizationTools,
+      ...(modelConfig.providerOptions && { providerOptions: modelConfig.providerOptions }),
       
       // NEW: Real-time chunk processing for early tool detection
       onChunk: async ({ chunk }) => {
@@ -663,7 +674,8 @@ async function chatHandler(req: NextRequest): Promise<Response> {
     });
 
     const response = result.toDataStreamResponse({ 
-      getErrorMessage: errorHandler 
+      getErrorMessage: errorHandler,
+      sendReasoning: modelId === 'o4-mini'
     });
 
     // Add conversation ID to response headers if available

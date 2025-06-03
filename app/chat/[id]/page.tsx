@@ -18,7 +18,7 @@ import { RealDataCollector } from '@/lib/analytics/real-data-collector';
 import { TypingIndicator } from '../../../components/ui/LoadingStates';
 
 type Message = VercelMessage;
-type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307';
+type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307' | 'o4-mini';
 
 interface ConversationData {
   id: string

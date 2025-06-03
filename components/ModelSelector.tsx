@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307';
+type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307' | 'o4-mini';
 
 interface ModelSelectorProps {
   selectedModel: ModelType;
@@ -60,6 +60,19 @@ const models = [
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-orange-400">
         <path d="M12 16.01L16 12L12 7.99L8 12L12 16.01Z" fill="currentColor" />
         <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  },
+  { 
+    id: 'o4-mini', 
+    name: 'o4-mini', 
+    description: 'OpenAI\'s reasoning model with thinking traces',
+    tag: 'Reasoning',
+    performance: 'Balanced',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-purple-400">
+        <path d="M9.5 2A7.5 7.5 0 0 0 4 10c0 6 3.5 10 3.5 10s3.5-4 3.5-10a7.5 7.5 0 0 0-5.5-8Z" stroke="currentColor" strokeWidth="2"/>
+        <path d="M15.5 3A6.5 6.5 0 0 1 20 9c0 5-3 8.5-3 8.5s-3-3.5-3-8.5a6.5 6.5 0 0 1 3.5-6Z" stroke="currentColor" strokeWidth="2"/>
       </svg>
     )
   },

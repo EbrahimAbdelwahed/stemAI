@@ -13,6 +13,7 @@ import { Typography } from './ui/Typography';
 import { ToolLoadingState } from './ui/LoadingStates';
 import { StreamingMarkdown } from './ui/StreamingMarkdown';
 import { ToolResultRenderer, estimateThinkingTime } from './chat/ToolResultRenderer';
+import { ThinkingTracesArtifact } from './chat/ThinkingTracesArtifact';
 
 // Temporary direct import to fix chunk loading issue
 // TODO: Restore dynamic import after resolving chunk loading
@@ -168,6 +169,27 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                   </div>
                   
                   <div className="flex-1 space-y-4 min-w-0">
+                    {/* Thinking traces from reasoning parts */}
+                    {message.parts?.map((part, partIndex) => {
+                      if (part.type === 'reasoning') {
+                        return (
+                          <ThinkingTracesArtifact
+                            key={`${message.id}-reasoning-${partIndex}`}
+                            reasoning={part.details?.map(detail => 
+                              detail.type === 'text' ? detail.text : (detail.type === 'redacted' ? '<redacted>' : '')
+                            ).join('') || ''}
+                            reasoningDetails={part.details}
+                            metadata={{
+                              tokenCount: part.details?.map(d => 
+                                d.type === 'text' ? (d.text || '').split(' ').length : 0
+                              ).reduce((a, b) => a + b, 0),
+                            }}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+
                     {/* Message content */}
                     {message.content && typeof message.content === 'string' && (
                       <div className="prose prose-invert max-w-none">

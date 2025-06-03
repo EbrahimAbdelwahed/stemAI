@@ -146,7 +146,7 @@ export function Navigation({
 
             {/* Model selector */}
             {showModelSelector && selectedModel && onModelChange && (
-                          <select
+              <select
               value={selectedModel}
               onChange={(e) => onModelChange(e.target.value)}
               className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-500/50 hover:border-neutral-600 transition-colors"
@@ -155,6 +155,7 @@ export function Navigation({
                 <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash</option>
                 <option value="gpt-4o">GPT-4o</option>
                 <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                <option value="o4-mini">o4-mini</option>
               </select>
             )}
 
