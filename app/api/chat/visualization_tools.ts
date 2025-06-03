@@ -59,8 +59,7 @@ export const displayMolecule3D = tool({
     // Region-specific options
     selections: z.array(z.object({
       region: z.string().describe("Selection criteria using 3Dmol syntax (e.g., 'chain A', 'resi 25-50', 'ligand', 'hetero')"),
-      style: z.enum(['stick', 'sphere', 'line', 'cartoon', 'surface']).describe("Representation style for this specific region")
-    }).extend({
+      style: z.enum(['stick', 'sphere', 'line', 'cartoon', 'surface']).describe("Representation style for this specific region"),
       color: z.string().optional().describe("Custom color for this region (e.g., 'red', '#FF0000', 'rgb(255,0,0)')")
     })).optional().describe("Array of region-specific styling rules to apply different representations to parts of the molecule"),
     
