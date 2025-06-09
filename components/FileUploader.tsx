@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
+import { useDocumentState } from '@/lib/store/hooks';
 
 interface FileUploaderProps {
   onUpload: (files: File[]) => void;
-  isUploading?: boolean;
   disabled?: boolean;
 }
 
@@ -11,7 +11,8 @@ const IMAGE_TYPES = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
 const DOCUMENT_TYPES = ['.pdf', '.txt', '.doc', '.docx'];
 const ALL_TYPES = [...IMAGE_TYPES, ...DOCUMENT_TYPES];
 
-export default function FileUploader({ onUpload, isUploading = false, disabled = false }: FileUploaderProps) {
+export default function FileUploader({ onUpload, disabled = false }: FileUploaderProps) {
+  const { isUploading } = useDocumentState();
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -79,21 +80,21 @@ export default function FileUploader({ onUpload, isUploading = false, disabled =
       case 'txt':
         return (
           <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2-2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
           </svg>
         );
       case 'doc':
       case 'docx':
         return (
           <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2-2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
             <path fillRule="evenodd" d="M7 9a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm0 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clipRule="evenodd" />
           </svg>
         );
       default:
         return (
           <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2-2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
           </svg>
         );
     }

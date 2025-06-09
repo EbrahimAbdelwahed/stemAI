@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { useChat, Message as VercelMessage } from '@ai-sdk/react';
 import ChatInput from '../../components/ChatInput';
-import ChatMessages from '../../components/ChatMessages';
 import DocumentPrivacyNotice from '../../components/chat/DocumentPrivacyNotice';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/Card';
@@ -17,6 +16,12 @@ import { RealDataCollector } from '@/lib/analytics/real-data-collector';
 import { TypingIndicator } from '../../components/ui/LoadingStates';
 import { ChatGPTLayout } from '../../components/chat/ChatGPTLayout';
 import { ChatMainArea } from '../../components/chat/ChatMainArea';
+import { useAppStore } from '@/lib/store/app-store';
+import { useChatActions, useChatState, useDocumentActions, useDocumentState } from '@/lib/store/hooks';
+import { LoadingSkeleton } from '@/lib/lazy-loading';
+
+// Lazy load heavy components
+const LazyChatMessages = lazy(() => import('../../components/ChatMessages'));
 
 // Message type from Vercel AI SDK is used directly.
 // The SDK's Message type should include toolInvocations for Vercel AI SDK v3+.
@@ -28,13 +33,14 @@ const LOCAL_STORAGE_CHAT_ID_KEY = 'stem-ai-chat-id';
 const LOCAL_STORAGE_MESSAGES_KEY_PREFIX = 'stem-ai-chat-messages-';
 
 export default function ChatPage() {
-  const [chatId, setChatId] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<ModelType>('grok-3-mini'); // Default to Grok-3-Mini (uses special tokens)
-  const [isUploading, setIsUploading] = useState(false);
+  const { currentConversation: chatId, selectedModel } = useChatState();
+  const { setCurrentConversation, setSelectedModel, setMessages: setMessagesInStore } = useChatActions();
+  const { isUploading } = useDocumentState();
+  const { setIsUploading } = useDocumentActions();
+
   const [sessionStartTime] = useState<number>(Date.now());
   const realDataCollector = RealDataCollector.getInstance();
-  // pendingVisualizations state is removed as per refactoring plan.
-
+  
   const onFinishHandler = useCallback((message: Message) => {
     console.log('[ChatPage] onFinish called with message:', message);
     track('ChatResponded', { model: selectedModel, messageId: message.id });
@@ -120,7 +126,7 @@ export default function ChatPage() {
     if (urlChatId) {
       // Use URL chat ID if provided (from nuova chat button)
       chatIdToUse = urlChatId;
-      setChatId(urlChatId);
+      setCurrentConversation(urlChatId);
       localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, urlChatId);
       // Clear URL parameter after using it
       window.history.replaceState({}, '', '/chat');
@@ -129,11 +135,11 @@ export default function ChatPage() {
       const storedChatId = localStorage.getItem(LOCAL_STORAGE_CHAT_ID_KEY);
       if (storedChatId) {
         chatIdToUse = storedChatId;
-        setChatId(storedChatId);
+        setCurrentConversation(storedChatId);
       } else {
         const newChatId = uuidv4();
         chatIdToUse = newChatId;
-        setChatId(newChatId);
+        setCurrentConversation(newChatId);
         localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, newChatId);
       }
     }
@@ -194,18 +200,21 @@ export default function ChatPage() {
     // Track page view for chat page
     realDataCollector.storePageView('/chat', document.referrer, navigator.userAgent);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setChatId, setMessages, selectedModel, realDataCollector, sessionStartTime]); // Added missing dependencies
+  }, [setCurrentConversation, setMessages, selectedModel, realDataCollector, sessionStartTime]); // Added missing dependencies
 
   useEffect(() => {
     if (chatId && messages.length > 0) {
       try {
         localStorage.setItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatId}`, JSON.stringify(messages));
+        if (chatId) {
+          setMessagesInStore(chatId, messages as any);
+        }
       } catch (e) {
         console.error("Failed to save messages to localStorage", e);
         toast.error("Could not save chat history. Storage might be full.");
       }
     }
-  }, [chatId, messages]);
+  }, [chatId, messages, setMessagesInStore]);
 
   // useEffect for processing visualizationSignal and fetchVisualizationParams is removed.
   // fetchVisualizationParams function is removed.
@@ -379,7 +388,7 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
     
     const newChatId = uuidv4();
     if(chatId) localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatId}`);
-    setChatId(newChatId); 
+    setCurrentConversation(newChatId); 
     localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, newChatId);
     const welcomeMessage: Message = {
       id: 'welcome',
@@ -419,18 +428,17 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
   return (
     <ChatGPTLayout currentConversationId={chatId}>
       <ChatMainArea>
-        <ChatMessages messages={messages} />
+                    <Suspense fallback={<LoadingSkeleton className="h-full" />}>
+              <LazyChatMessages messages={messages} />
+            </Suspense>
         <ChatInput
           input={input}
           handleInputChange={handleInputChange}
           handleSubmit={handleSubmitWithOptions}
           isLoading={isLoading}
           stop={stop}
-          disabled={isUploading}
-          selectedModel={selectedModel}
-          onModelChange={handleModelChange}
           onFileUpload={handleFileUploadCallback}
-          isUploading={isUploading}
+          disabled={isLoading || isUploading}
         />
       </ChatMainArea>
     </ChatGPTLayout>

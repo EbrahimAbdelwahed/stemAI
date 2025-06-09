@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 const nextConfig = {
   experimental: {
     optimizePackageImports: ['@ai-sdk/react', 'react-markdown', 'plotly.js'],
@@ -57,43 +61,85 @@ const nextConfig = {
     // Exclude test files and directories from build
     config.resolve.alias = {
       ...config.resolve.alias,
-      // Use lighter alternatives where possible
-      'react-dom$': 'react-dom/profiling',
-      'scheduler/tracing': 'scheduler/tracing-profiling',
     };
 
     // Optimize client-side bundles
     if (!isServer) {
-      // Enhanced code splitting
+      // Enhanced code splitting for optimal bundle sizes
       config.optimization.splitChunks = {
         chunks: 'all',
         minSize: 20000,
-        maxSize: 244000,
+        maxSize: 200000, // Reduced from 244000 for better splitting
         cacheGroups: {
-          // Heavy visualization libraries
-          visualization: {
-            test: /[\\/]node_modules[\\/](plotly\.js|3dmol|@rdkit|molstar)[\\/]/,
-            name: 'visualization-libs',
-            chunks: 'async', // Load only when needed
+          // Heavy visualization libraries - load only when needed
+          plotly: {
+            test: /[\\/]node_modules[\\/](plotly\.js|react-plotly\.js)[\\/]/,
+            name: 'plotly',
+            chunks: 'async',
+            enforce: true,
+            priority: 40,
+          },
+          
+          // 3D molecular visualization
+          molecular: {
+            test: /[\\/]node_modules[\\/](3dmol|molstar)[\\/]/,
+            name: 'molecular-viz',
+            chunks: 'async',
+            enforce: true,
+            priority: 35,
+          },
+          
+          // AI SDK packages - split by provider
+          openai: {
+            test: /[\\/]node_modules[\\/](@ai-sdk\/openai|openai)[\\/]/,
+            name: 'openai',
+            chunks: 'async',
             enforce: true,
             priority: 30,
           },
-          // AI/ML libraries
+          
+          anthropic: {
+            test: /[\\/]node_modules[\\/](@ai-sdk\/anthropic|anthropic)[\\/]/,
+            name: 'anthropic',
+            chunks: 'async',
+            enforce: true,
+            priority: 30,
+          },
+          
+          google: {
+            test: /[\\/]node_modules[\\/](@ai-sdk\/google|@google-ai)[\\/]/,
+            name: 'google-ai',
+            chunks: 'async',
+            enforce: true,
+            priority: 30,
+          },
+          
+          xai: {
+            test: /[\\/]node_modules[\\/](@ai-sdk\/xai)[\\/]/,
+            name: 'xai',
+            chunks: 'async',
+            enforce: true,
+            priority: 30,
+          },
+          
+          // Core AI SDK
           ai: {
-            test: /[\\/]node_modules[\\/](@ai-sdk|ai|openai|anthropic)[\\/]/,
-            name: 'ai-libs',
+            test: /[\\/]node_modules[\\/](ai|@ai-sdk\/react)[\\/]/,
+            name: 'ai-core',
             chunks: 'all',
             enforce: true,
             priority: 25,
           },
+          
           // Markdown and text processing
           markdown: {
-            test: /[\\/]node_modules[\\/](react-markdown|remark|rehype|katex|prismjs)[\\/]/,
-            name: 'markdown-libs',
-            chunks: 'all',
+            test: /[\\/]node_modules[\\/](react-markdown|remark|rehype|katex)[\\/]/,
+            name: 'markdown',
+            chunks: 'async',
             enforce: true,
             priority: 20,
           },
+          
           // UI libraries
           ui: {
             test: /[\\/]node_modules[\\/](@radix-ui|lucide-react|framer-motion)[\\/]/,
@@ -102,20 +148,22 @@ const nextConfig = {
             enforce: true,
             priority: 15,
           },
-          // React ecosystem
+          
+          // Core React - keep together
           react: {
             test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-            name: 'react-libs',
+            name: 'react',
             chunks: 'all',
             enforce: true,
-            priority: 10,
+            priority: 20,
           },
+          
           // Common vendor libraries
           vendor: {
             test: /[\\/]node_modules[\\/]/,
             name: 'vendor',
             chunks: 'all',
-            priority: 5,
+            priority: 10,
           },
         },
       };
@@ -200,4 +248,4 @@ const nextConfig = {
   poweredByHeader: false,
 };
 
-module.exports = nextConfig; 
+module.exports = withBundleAnalyzer(nextConfig); 

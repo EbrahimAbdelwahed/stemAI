@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, ChangeEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useChat, Message as VercelMessage } from '@ai-sdk/react';
 import ChatInput from '../../../components/ChatInput';
 import ChatMessages from '../../../components/ChatMessages';
-import { Button } from '../../../components/ui/button';
-import { Card } from '../../../components/ui/Card';
-import { Typography } from '../../../components/ui/Typography';
 import { ChatGPTLayout } from '../../../components/chat/ChatGPTLayout';
 import { ChatMainArea } from '../../../components/chat/ChatMainArea';
 import { toast } from 'sonner';
@@ -16,6 +13,7 @@ import { track } from '@vercel/analytics';
 import { ChatFlowTracker, trackError } from '@/lib/analytics/event-tracking';
 import { RealDataCollector } from '@/lib/analytics/real-data-collector';
 import { TypingIndicator } from '../../../components/ui/LoadingStates';
+import { useAppStore } from '@/lib/store/app-store';
 
 type Message = VercelMessage;
 type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307' | 'o4-mini';
@@ -45,12 +43,17 @@ export default function ConversationPage() {
   
   const [conversationData, setConversationData] = useState<ConversationData | null>(null);
   const [isLoadingConversation, setIsLoadingConversation] = useState(true);
-  const [selectedModel, setSelectedModel] = useState<ModelType>('grok-3-mini');
-  const [isUploading, setIsUploading] = useState(false);
+  const { selectedModel, setSelectedModel, isUploading, setIsUploading } = useAppStore(
+    (state) => ({
+      selectedModel: state.selectedModel,
+      setSelectedModel: state.setSelectedModel,
+      isUploading: state.isUploading,
+      setIsUploading: state.setIsUploading,
+    })
+  );
   const [sessionStartTime] = useState<number>(Date.now());
   const realDataCollector = RealDataCollector.getInstance();
 
-  // Create reactive body object for useChat
   const chatBody = useMemo(() => ({
     model: selectedModel,
     conversationId: conversationId,
@@ -126,7 +129,6 @@ export default function ConversationPage() {
     onError: onErrorHandler,
   });
 
-  // Load conversation data after useChat is initialized
   useEffect(() => {
     const loadConversation = async () => {
       setIsLoadingConversation(true);
@@ -148,7 +150,6 @@ export default function ConversationPage() {
         setConversationData(conversation);
         setSelectedModel(conversation.model as ModelType || 'grok-3-mini');
         
-        // Convert database messages to Vercel AI format
         const convertedMessages: Message[] = conversation.messages.map((msg: any) => ({
           id: msg.id,
           role: msg.role,
@@ -159,7 +160,6 @@ export default function ConversationPage() {
         
         setMessages(convertedMessages);
         
-        // Track conversation load
         realDataCollector.storeUserEvent('conversation_loaded', {
           conversationId,
           messageCount: conversation.messages.length,
@@ -178,21 +178,7 @@ export default function ConversationPage() {
     if (conversationId && setMessages) {
       loadConversation();
     }
-  }, [conversationId, router, realDataCollector, setMessages]);
-
-  const handleModelChange = (newModel: ModelType) => {
-    const previousModel = selectedModel;
-    setSelectedModel(newModel);
-    track('ModelChanged', { newModel, conversationId });
-    
-    realDataCollector.storeUserEvent('model_changed', {
-      previous_model: previousModel,
-      new_model: newModel,
-      conversationId: conversationId,
-      conversation_length: messages.length,
-      session_duration: Date.now() - sessionStartTime
-    }, `/chat/${conversationId}`);
-  };
+  }, [conversationId, router, realDataCollector, setMessages, setSelectedModel]);
 
   const handleFileUploadCallback = useCallback((files: File[]) => {
     if (!files || files.length === 0) {
@@ -201,23 +187,9 @@ export default function ConversationPage() {
     }
 
     setIsUploading(true);
-    
     // Handle file upload logic here
-    // This would be similar to the original chat page implementation
-    
     setIsUploading(false);
-  }, []);
-
-  const handleClearChat = () => {
-    setMessages([]);
-    track('ChatCleared', { conversationId });
-    
-    realDataCollector.storeUserEvent('conversation_cleared', {
-      conversationId: conversationId,
-      previous_message_count: messages.length,
-      model: selectedModel
-    }, `/chat/${conversationId}`);
-  };
+  }, [setIsUploading]);
 
   const handleSubmitWithOptions = (e: React.FormEvent<HTMLFormElement>, options?: Parameters<typeof originalHandleSubmit>[1]) => {
     (window as unknown as { lastMessageTime?: number }).lastMessageTime = performance.now();
@@ -251,41 +223,33 @@ export default function ConversationPage() {
     );
   }
 
-  if (!conversationData) {
-    return (
-      <ChatGPTLayout currentConversationId={conversationId}>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-[#8e8ea0] mb-4">Conversation not found</p>
-            <Button 
-              onClick={() => router.push('/chat')}
-              className="bg-white text-black hover:bg-gray-200"
-            >
-              Start New Chat
-            </Button>
-          </div>
-        </div>
-      </ChatGPTLayout>
-    );
-  }
-
   return (
     <ChatGPTLayout currentConversationId={conversationId}>
-      <ChatMainArea title={conversationData.title}>
-        <ChatMessages messages={messages} />
+      <ChatMainArea>
+        {messages.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold text-white">Start a new chat</h2>
+              <p className="text-gray-400 mt-2">
+                Select a model and start typing to begin.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <ChatMessages messages={messages} />
+        )}
+        {isLoading && messages.length > 0 && <TypingIndicator />}
+      </ChatMainArea>
+      <div className="p-4 bg-background-secondary">
         <ChatInput
           input={input}
           handleInputChange={handleInputChange}
           handleSubmit={handleSubmitWithOptions}
           isLoading={isLoading}
           stop={stop}
-          disabled={isUploading}
-          selectedModel={selectedModel}
-          onModelChange={handleModelChange}
           onFileUpload={handleFileUploadCallback}
-          isUploading={isUploading}
         />
-      </ChatMainArea>
+      </div>
     </ChatGPTLayout>
   );
 } 

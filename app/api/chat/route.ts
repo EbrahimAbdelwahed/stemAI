@@ -1,7 +1,3 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { google } from '@ai-sdk/google';
-import { openai } from '@ai-sdk/openai';
-import { xai } from '@ai-sdk/xai';
 import { streamText, CoreMessage } from 'ai';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
@@ -17,12 +13,13 @@ import {
   saveToolInvocation
 } from '@/lib/db/conversations';
 import { saveToLocalStorage } from '@/lib/chat/migration';
+import { getModelConfig as getLazyModelConfig } from '@/lib/ai/lazy-models';
 
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
 
 // getModelConfig will now be the primary way to get a configured model instance
-function getModelConfig(modelId: string, mode: string = 'chat') {
+async function getModelConfigLocal(modelId: string, mode: string = 'chat') {
   let baseSystem = '';
 
   if (mode === 'generate') {
@@ -212,25 +209,28 @@ IMPORTANT:
 - Use appropriate emphasis, lists, and code blocks to enhance readability`;
   }
 
+  // Use lazy loaded model config
+  const model = await getLazyModelConfig(modelId);
+  
   switch (modelId) {
     case 'gemini-1.5-flash-latest':
       return {
-        model: google('models/gemini-1.5-flash-latest'),
+        model,
         system: `${baseSystem}\n\nYou are powered by Gemini 1.5 Flash.`,
       };
     case 'claude-3-haiku-20240307':
       return {
-        model: anthropic('claude-3-haiku-20240307'),
+        model,
         system: `${baseSystem}\n\nYou are powered by Claude 3 Haiku.`,
       };
     case 'gpt-4o':
       return {
-        model: openai('gpt-4o'),
+        model,
         system: `${baseSystem}\n\nYou are powered by GPT-4o.`,
       };
     case 'o4-mini':
       return {
-        model: openai.responses('o4-mini'),
+        model,
         system: `${baseSystem}\n\nYou are powered by o4-mini with advanced reasoning capabilities.`,
         providerOptions: {
           openai: { 
@@ -246,7 +246,7 @@ IMPORTANT:
       );
       
       return {
-        model: xai('grok-3-mini'),
+        model,
         system: `${grokSystem}\n\nYou are powered by Grok-3-Mini with reasoning capabilities.
 
 ## SPECIAL TOKEN SYSTEM FOR VISUALIZATIONS
@@ -496,7 +496,7 @@ async function chatHandler(req: NextRequest): Promise<Response> {
     console.log('[RAG] RAG is disabled or last user message is not suitable for search. Skipping document search.');
   }
 
-  const modelConfig = getModelConfig(modelId, mode);
+      const modelConfig = await getModelConfigLocal(modelId, mode);
   
   const systemPromptWithContext = context 
     ? `${modelConfig.system}\n\n${context}`

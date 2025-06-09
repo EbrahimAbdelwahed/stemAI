@@ -408,4 +408,6 @@ export const MolStarWrapper: FC<MolStarWrapperProps> = ({
       />
     </div>
   );
-}; 
+};
+
+export default MolStarWrapper; 

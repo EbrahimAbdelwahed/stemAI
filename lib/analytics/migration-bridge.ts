@@ -1,5 +1,5 @@
 import { PerformanceTracker, ChatFlowTracker, DocumentFlowTracker } from './event-tracking';
-import { performanceMonitor } from '../performance/monitor';
+// import { performanceMonitor } from '../performance/monitor'; // Commented out - file doesn't exist
 
 /**
  * Migration Bridge for Performance Monitoring
@@ -32,9 +32,9 @@ export function migrateApiCallMonitoring<T>(
       });
       
       // Keep old system for backward compatibility (optional)
-      if (typeof performanceMonitor !== 'undefined') {
-        performanceMonitor.measureAPICall(endpoint, () => Promise.resolve(result), metadata);
-      }
+      // if (typeof performanceMonitor !== 'undefined') {
+      //   performanceMonitor.measureAPICall(endpoint, () => Promise.resolve(result), metadata);
+      // }
       
       return result;
     })
@@ -92,9 +92,9 @@ export function migrateWebVitalsRecording(page: string, vitals: {
   }
   
   // Keep old system for backward compatibility
-  if (typeof performanceMonitor !== 'undefined') {
-    performanceMonitor.recordWebVitals(page, vitals);
-  }
+  // if (typeof performanceMonitor !== 'undefined') {
+  //   performanceMonitor.recordWebVitals(page, vitals);
+  // }
 }
 
 // Bridge function to migrate chat performance tracking

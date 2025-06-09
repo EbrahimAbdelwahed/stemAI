@@ -51,7 +51,7 @@ export const displayMolecule3D = tool({
       .describe("The molecular identifier (e.g., '1CRN' for PDB, 'CCO' for ethanol SMILES, '702' for PubChem CID)"),
     
     // Advanced visualization options
-    representationStyle: z.enum(['stick', 'sphere', 'line', 'cartoon', 'surface', 'ball-stick']).default('stick')
+    representationStyle: z.enum(['stick', 'sphere', 'line', 'cartoon', 'surface', 'ball-stick'])
       .describe("3D representation style: 'stick' for bond representation, 'sphere' for space-filling, 'line' for wireframe, 'cartoon' for protein secondary structure, 'surface' for molecular surface, 'ball-stick' for combined spheres and sticks"),
     colorScheme: z.enum(['element', 'chain', 'residue', 'ss', 'spectrum', 'custom']).default('element')
       .describe("Coloring scheme: 'element' for atomic colors, 'chain' for protein chains, 'residue' for amino acid types, 'ss' for secondary structure, 'spectrum' for gradient coloring, 'custom' for user-defined colors"),

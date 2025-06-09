@@ -580,3 +580,58 @@ investigation:
 3. **AuthButton Component** (`components/ui/AuthButton.tsx`): User menu dropdown
 
 This pattern should be consistently applied across all new components and used when refactoring existing text-heavy UI elements.
+
+
+-----------------------------------------------------------
+o4-mini thinking summaries
+-----------------------------------------------------------
+To extract reasoning traces or summaries from the o4-mini model using the Vercel AI SDK, you can utilize the reasoningSummary option in your API calls. Here's how you can implement this:
+ai-sdk.dev
+🧠 Extracting Reasoning Summaries with o4-mini
+
+The o4-mini model supports reasoning summaries, which provide insights into the model's thought process. To enable this feature, set the reasoningSummary option to either "auto" or "detailed" within the providerOptions.
+ai-sdk.dev
+Example with generateText:
+
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+const result = await generateText({
+  model: openai.responses('o4-mini'),
+  prompt: 'Explain the significance of the Mission burrito in San Francisco.',
+  providerOptions: {
+    openai: {
+      reasoningSummary: 'detailed', // or 'auto'
+    },
+  },
+});
+
+console.log('Generated Text:', result.text);
+console.log('Reasoning Summary:', result.reasoning);
+
+In this example, result.reasoning will contain the reasoning summary provided by the o4-mini model.
+ai-sdk.dev
+Example with streamText:
+
+import { streamText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+const result = streamText({
+  model: openai.responses('o4-mini'),
+  prompt: 'Discuss the cultural impact of the Mission burrito in San Francisco.',
+  providerOptions: {
+    openai: {
+      reasoningSummary: 'detailed', // or 'auto'
+    },
+  },
+});
+
+for await (const part of result.fullStream) {
+  if (part.type === 'reasoning') {
+    console.log(`Reasoning: ${part.textDelta}`);
+  } else if (part.type === 'text-delta') {
+    process.stdout.write(part.textDelta);
+  }
+}
+
+This streaming example allows you to process the reasoning summary and the generated text in real-time.

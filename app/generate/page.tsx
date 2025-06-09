@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { useChat } from '@ai-sdk/react';
 import SplitPane from '../../components/SplitPane';
 import NavBar from '../../components/NavBar';
 import EnhancedChatInput from '../../components/EnhancedChatInput';
 import ConversationView from '../../components/ConversationView';
-import CodePreview from '../../components/CodePreview';
 import { RealDataCollector } from '../../lib/analytics/real-data-collector';
+import { CodePreviewSkeleton } from '@/lib/lazy-loading';
+
+// Lazy load CodePreview component
+const LazyCodePreview = lazy(() => import('../../components/CodePreview'));
 
 type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'o4-mini';
 
@@ -168,10 +171,7 @@ export default function GeneratePage() {
         left={
           <div className="flex flex-col h-full">
             <div className="overflow-hidden flex-1">
-              <ConversationView 
-                messages={messages} 
-                isLoading={isLoading} 
-              />
+              <ConversationView />
             </div>
             <EnhancedChatInput
               input={input}
@@ -184,10 +184,12 @@ export default function GeneratePage() {
           </div>
         }
         right={
-          <CodePreview
-            code={generatedCode}
-            jsx={generatedJSX}
-          />
+          <Suspense fallback={<CodePreviewSkeleton />}>
+            <LazyCodePreview
+              code={generatedCode}
+              jsx={generatedJSX}
+            />
+          </Suspense>
         }
       />
       

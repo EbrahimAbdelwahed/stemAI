@@ -1,12 +1,10 @@
 'use client';
 
-import React, { Suspense, useEffect } from 'react';
-import { createLazyComponent, usePerformanceMonitor, ResourcePreloader } from '@/lib/performance/optimization';
+import React, { Suspense, useEffect, lazy } from 'react';
 
 // Lazy load the heavy 3D component only when needed
-const Molecule3DViewer = createLazyComponent(
-  () => import('../../components/visualizations/Molecule3DViewer'),
-  'Molecule3DViewer'
+const Molecule3DViewer = lazy(
+  () => import('../../components/visualizations/Molecule3DViewer')
 );
 
 // Loading component with better UX
@@ -47,45 +45,7 @@ const ErrorFallback = ({ error, retry }: { error: Error; retry: () => void }) =>
 );
 
 export default function DebugMolePage() {
-  const performanceMonitor = usePerformanceMonitor('DebugMolePage');
   const [retryKey, setRetryKey] = React.useState(0);
-
-  useEffect(() => {
-    performanceMonitor.startMeasurement('page-load');
-    
-    // Preload critical resources
-    const preloadResources = async () => {
-      try {
-        await Promise.all([
-          ResourcePreloader.preloadScript('https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js', 'high'),
-          ResourcePreloader.preloadScript('https://unpkg.com/3dmol@latest/build/3Dmol-min.js', 'high')
-        ]);
-        console.log('[DebugMolePage] Critical resources preloaded');
-      } catch (error) {
-        console.warn('[DebugMolePage] Failed to preload some resources:', error);
-      }
-    };
-
-    preloadResources();
-
-    // Register cleanup
-    performanceMonitor.registerCleanup(() => {
-      console.log('[DebugMolePage] Cleaning up resources');
-    });
-
-    // Check memory usage
-    const memoryCheck = setInterval(() => {
-      if (performanceMonitor.checkMemory()) {
-        console.warn('[DebugMolePage] High memory usage detected');
-      }
-    }, 30000); // Check every 30 seconds
-
-    return () => {
-      clearInterval(memoryCheck);
-      performanceMonitor.cleanup();
-      performanceMonitor.endMeasurement('page-load');
-    };
-  }, [performanceMonitor]);
 
   const handleRetry = () => {
     setRetryKey(prev => prev + 1);
@@ -102,18 +62,6 @@ export default function DebugMolePage() {
         </div>
         
         <div className="grid gap-6">
-          {/* Performance Info Card */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-blue-800 mb-2">Performance Optimizations</h3>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>✓ Lazy loading of 3D libraries</li>
-              <li>✓ Resource preloading for faster initialization</li>
-              <li>✓ Memory usage monitoring</li>
-              <li>✓ Automatic cleanup on unmount</li>
-              <li>✓ Error boundary with retry functionality</li>
-            </ul>
-          </div>
-
           {/* Main 3D Viewer */}
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-semibold mb-4">Ethanol (CCO) Test</h2>
@@ -184,9 +132,7 @@ export default function DebugMolePage() {
           <ul className="space-y-1">
             <li>• This page tests the Molecule3DViewer component with performance optimizations</li>
             <li>• 3D libraries are loaded lazily to improve initial page load time</li>
-            <li>• Memory usage is monitored and logged to the console</li>
-            <li>• Check the browser console for detailed performance logs</li>
-            <li>• Use browser DevTools Performance tab for detailed analysis</li>
+            <li>• Error boundary with retry functionality</li>
           </ul>
         </div>
       </div>

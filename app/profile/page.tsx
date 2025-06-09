@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card'
 import { UserAvatar, AuthButton } from '@/components/ui/AuthButton'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useDocumentState, useDocumentActions, useChatState, useChatActions } from '@/lib/store/hooks'
 
 interface ConversationSummary {
   id: string
@@ -38,8 +39,12 @@ interface UserStats {
 export default function ProfilePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [conversations, setConversations] = useState<ConversationSummary[]>([])
-  const [documents, setDocuments] = useState<UserDocument[]>([])
+
+  const { conversations } = useChatState()
+  const { setConversations } = useChatActions()
+  const { documents } = useDocumentState()
+  const { setDocuments } = useDocumentActions()
+
   const [stats, setStats] = useState<UserStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -88,7 +93,7 @@ export default function ProfilePage() {
             }
           })
         )
-        setConversations(conversationSummaries)
+        setConversations(conversationSummaries as any)
       }
 
       // Fetch documents
@@ -99,19 +104,19 @@ export default function ProfilePage() {
       }
 
       // Calculate stats from fetched data
-      const totalMessages = conversations.reduce((sum, conv) => sum + conv.messageCount, 0)
-      const modelCounts = conversations.reduce((acc: Record<string, number>, conv) => {
+      const totalMessages = (conversations as any[]).reduce((sum, conv) => sum + conv.messageCount, 0)
+      const modelCounts = (conversations as any[]).reduce((acc: Record<string, number>, conv) => {
         acc[conv.model] = (acc[conv.model] || 0) + 1
         return acc
       }, {})
-      const favoriteModel = Object.entries(modelCounts).sort(([,a], [,b]) => b - a)[0]?.[0] || 'gpt-4o'
+      const favoriteModel = Object.entries(modelCounts).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'gpt-4o'
 
       const userStats: UserStats = {
         totalConversations: conversations.length,
         totalMessages,
         favoriteModel,
         joinDate: new Date().toISOString(),
-        lastActive: conversations[0]?.lastActivity || new Date().toISOString()
+        lastActive: (conversations[0] as any)?.lastActivity || new Date().toISOString()
       }
       setStats(userStats)
 
@@ -142,14 +147,14 @@ export default function ProfilePage() {
     return formatDate(dateString)
   }
 
-  const handleDeleteDocument = async (documentId: number) => {
+  const handleDeleteDocument = async (documentId: string) => {
     try {
       const response = await fetch(`/api/documents/${documentId}`, {
         method: 'DELETE'
       })
       
       if (response.ok) {
-        setDocuments(documents.filter(doc => doc.id !== documentId))
+        setDocuments(documents.filter((doc: any) => doc.id !== documentId))
       } else {
         const errorData = await response.json()
         setError(errorData.error || 'Failed to delete document')
@@ -248,310 +253,173 @@ export default function ProfilePage() {
                     Pro User
                   </Badge>
                   <Typography variant="small" className="text-neutral-400">
-                    All features unlocked
+                    User ID: {session.user.id}
                   </Typography>
                 </div>
               </div>
             </div>
           </Card>
         </div>
+        
+        {isLoading && (
+          <div className="text-center text-neutral-400">
+            <div className="w-6 h-6 mx-auto border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+            <p>Loading your data...</p>
+          </div>
+        )}
 
-        {/* Error Display */}
         {error && (
-          <div className="mb-8">
-            <Card className="bg-red-900/20 border-red-800">
-              <div className="p-6">
-                <Typography variant="small" className="text-red-400">
-                  {error}
-                </Typography>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-3"
-                  onClick={fetchUserData}
-                >
-                  Retry
-                </Button>
+          <Card className="bg-red-900/20 border-red-500/30">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
               </div>
-            </Card>
-          </div>
+              <Typography variant="h4" className="text-red-300 mb-2">
+                An Error Occurred
+              </Typography>
+              <Typography variant="muted" className="text-red-400 mb-6">
+                {error}
+              </Typography>
+              <Button onClick={fetchUserData} variant="destructive">
+                Try Again
+              </Button>
+            </div>
+          </Card>
         )}
 
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 sm:mb-12">
-            <Card className="bg-neutral-900 border-neutral-800">
-              <div className="p-6 text-center">
-                <Typography variant="h2" className="text-blue-400 mb-2">
-                  {stats.totalConversations}
-                </Typography>
-                <Typography variant="small" className="text-neutral-400">
-                  Conversations
-                </Typography>
-              </div>
-            </Card>
-            <Card className="bg-neutral-900 border-neutral-800">
-              <div className="p-6 text-center">
-                <Typography variant="h2" className="text-green-400 mb-2">
-                  {stats.totalMessages}
-                </Typography>
-                <Typography variant="small" className="text-neutral-400">
-                  Messages
-                </Typography>
-              </div>
-            </Card>
-            <Card className="bg-neutral-900 border-neutral-800">
-              <div className="p-6 text-center">
-                <Typography variant="h2" className="text-purple-400 mb-2 break-all">
-                  {stats.favoriteModel}
-                </Typography>
-                <Typography variant="small" className="text-neutral-400">
-                  Favorite Model
-                </Typography>
-              </div>
-            </Card>
-            <Card className="bg-neutral-900 border-neutral-800">
-              <div className="p-6 text-center">
-                <Typography variant="h2" className="text-orange-400 mb-2">
-                  {documents.length}
-                </Typography>
-                <Typography variant="small" className="text-neutral-400">
-                  Documents
-                </Typography>
-              </div>
-            </Card>
-          </div>
-        )}
+        {!isLoading && !error && (
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-neutral-900 border-neutral-800">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="conversations">
+                Conversations ({conversations.length})
+              </TabsTrigger>
+              <TabsTrigger value="documents">
+                Documents ({documents.length})
+              </TabsTrigger>
+            </TabsList>
 
-        {/* Tabs */}
-        <Tabs defaultValue="conversations" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
-            <TabsTrigger value="conversations">Chat History</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="conversations" className="mt-0">
-            <Card className="bg-neutral-900 border-neutral-800">
-              <div className="p-6 sm:p-8">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <Typography variant="h4" className="text-white">
-                    Recent Conversations
+            <TabsContent value="overview">
+              <Card className="bg-neutral-900 border-neutral-800 mt-6">
+                <div className="p-6">
+                  <Typography variant="h3" className="text-white mb-6">
+                    Statistics
                   </Typography>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => router.push('/chat')}
-                  >
-                    Start New Chat
-                  </Button>
-                </div>
-                
-                {isLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-20 bg-neutral-800 rounded-lg animate-pulse" />
-                    ))}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    <Card className="bg-neutral-800/50 p-4">
+                      <Typography variant="small" className="text-neutral-400">
+                        Total Conversations
+                      </Typography>
+                      <Typography variant="h2" className="text-white">
+                        {stats?.totalConversations ?? 0}
+                      </Typography>
+                    </Card>
+                    <Card className="bg-neutral-800/50 p-4">
+                      <Typography variant="small" className="text-neutral-400">
+                        Total Messages
+                      </Typography>
+                      <Typography variant="h2" className="text-white">
+                        {stats?.totalMessages ?? 0}
+                      </Typography>
+                    </Card>
+                    <Card className="bg-neutral-800/50 p-4">
+                      <Typography variant="small" className="text-neutral-400">
+                        Most Used Model
+                      </Typography>
+                      <Typography variant="h2" className="text-white capitalize">
+                        {stats?.favoriteModel.split('-')[0] ?? 'N/A'}
+                      </Typography>
+                    </Card>
                   </div>
-                ) : conversations.length > 0 ? (
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="conversations">
+              <Card className="bg-neutral-900 border-neutral-800 mt-6">
+                <div className="p-6">
+                  <Typography variant="h3" className="text-white mb-6">
+                    Chat History
+                  </Typography>
                   <div className="space-y-4">
-                    {conversations.map((conversation) => (
-                      <div
-                        key={conversation.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-neutral-800 rounded-lg hover:bg-neutral-750 transition-colors cursor-pointer"
-                        onClick={() => router.push(`/chat/${conversation.id}`)}
+                    {conversations
+                      // .sort((a,b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime())
+                      .map((conv) => (
+                      <Card 
+                        key={conv.id} 
+                        className="bg-neutral-800/50 hover:bg-neutral-800/80 transition-colors"
+                        onClick={() => router.push(`/chat/${conv.id}`)}
                       >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                            <Typography variant="small" className="text-white font-medium truncate">
-                              {conversation.title}
-                            </Typography>
-                            {conversation.isArchived && (
-                              <Badge variant="secondary" className="text-xs w-fit">
+                        <div className="p-4 flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-semibold truncate">{conv.title}</p>
+                            <div className="text-sm text-neutral-400 flex items-center gap-3 mt-1">
+                              <span>{conv.model}</span>
+                              <span className="w-1 h-1 bg-neutral-600 rounded-full" />
+                              {/* <span>{conv.messageCount} messages</span> */}
+                            </div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="text-sm text-neutral-500">
+                              {/* {formatRelativeTime(conv.lastActivity)} */}
+                              Recently
+                            </p>
+                            {conv.isArchived && (
+                              <Badge variant="secondary" className="mt-1">
                                 Archived
                               </Badge>
                             )}
                           </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-neutral-400">
-                            <span className="break-all">{conversation.model}</span>
-                            <span className="hidden sm:inline">•</span>
-                            <span>{conversation.messageCount} messages</span>
-                            <span className="hidden sm:inline">•</span>
-                            <span>{formatRelativeTime(conversation.lastActivity)}</span>
-                          </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="mt-3 sm:mt-0 self-end sm:self-center">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </Button>
-                      </div>
+                      </Card>
                     ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-neutral-800 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
-                    </div>
-                    <Typography variant="large" className="text-neutral-300 mb-3">
-                      No conversations yet
-                    </Typography>
-                    <Typography variant="muted" className="text-neutral-400 mb-6">
-                      Start chatting to see your conversation history here.
-                    </Typography>
-                    <Button 
-                      variant="primary"
-                      onClick={() => router.push('/chat')}
-                    >
-                      Start New Chat
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="documents" className="mt-0">
-            <Card className="bg-neutral-900 border-neutral-800">
-              <div className="p-6 sm:p-8">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <Typography variant="h4" className="text-white">
-                    Uploaded Documents
-                  </Typography>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => router.push('/chat')}
-                  >
-                    Upload Document
-                  </Button>
-                </div>
-
-                {isLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-20 bg-neutral-800 rounded-lg animate-pulse" />
-                    ))}
-                  </div>
-                ) : documents.length > 0 ? (
-                  <div className="space-y-4">
-                    {documents.map((document) => (
-                      <div
-                        key={document.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-neutral-800 rounded-lg"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                            <Typography variant="small" className="text-white font-medium truncate">
-                              {document.title}
-                            </Typography>
-                            {document.isPublic && (
-                              <Badge variant="secondary" className="text-xs w-fit">
-                                Public
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-neutral-400">
-                            <span>Uploaded {formatRelativeTime(document.createdAt)}</span>
-                            <span className="hidden sm:inline">•</span>
-                            <span>Modified {formatRelativeTime(document.updatedAt)}</span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 mt-3 sm:mt-0">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleDeleteDocument(document.id)}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-neutral-800 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <Typography variant="large" className="text-neutral-300 mb-3">
-                      No documents uploaded
-                    </Typography>
-                    <Typography variant="muted" className="text-neutral-400 mb-6">
-                      Upload documents to enhance your AI conversations.
-                    </Typography>
-                    <Button 
-                      variant="outline"
-                      onClick={() => router.push('/chat')}
-                    >
-                      Upload Document
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="settings" className="mt-0">
-            <div className="space-y-6">
-              <Card className="bg-neutral-900 border-neutral-800">
-                <div className="p-6 sm:p-8">
-                  <Typography variant="h4" className="text-white mb-6">
-                    Account Settings
-                  </Typography>
-                  <div className="space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <Typography variant="small" className="text-white font-medium">
-                          Email Notifications
-                        </Typography>
-                        <Typography variant="small" className="text-neutral-400 mt-1">
-                          Receive updates about your conversations
-                        </Typography>
-                      </div>
-                      <Button variant="outline" size="sm" className="w-fit">
-                        Configure
-                      </Button>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <Typography variant="small" className="text-white font-medium">
-                          Data Export
-                        </Typography>
-                        <Typography variant="small" className="text-neutral-400 mt-1">
-                          Download your conversation history
-                        </Typography>
-                      </div>
-                      <Button variant="outline" size="sm" className="w-fit">
-                        Export
-                      </Button>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <Typography variant="small" className="text-red-400 font-medium">
-                          Delete Account
-                        </Typography>
-                        <Typography variant="small" className="text-neutral-400 mt-1">
-                          Permanently delete your account and data
-                        </Typography>
-                      </div>
-                      <Button variant="destructive" size="sm" className="w-fit">
-                        Delete
-                      </Button>
-                    </div>
                   </div>
                 </div>
               </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+
+            <TabsContent value="documents">
+              <Card className="bg-neutral-900 border-neutral-800 mt-6">
+                <div className="p-6">
+                  <Typography variant="h3" className="text-white mb-6">
+                    My Documents
+                  </Typography>
+                  <div className="space-y-4">
+                    {documents.map((doc) => (
+                      <Card key={doc.id} className="bg-neutral-800/50">
+                        <div className="p-4 flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-semibold truncate">{doc.title}</p>
+                            <div className="text-sm text-neutral-400 flex items-center gap-3 mt-1">
+                              <span>{doc.isPublic ? 'Public' : 'Private'}</span>
+                              <span className="w-1 h-1 bg-neutral-600 rounded-full" />
+                              <span>Uploaded: {formatDate(doc.createdAt)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm">
+                              Edit
+                            </Button>
+                            <Button 
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteDocument(doc.id.toString())}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            </TabsContent>
+
+          </Tabs>
+        )}
       </div>
     </div>
   )
