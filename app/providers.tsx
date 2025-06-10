@@ -5,6 +5,7 @@ import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import { GameOfLifeProvider } from '@/contexts/GameOfLifeContext';
 import { initWebVitals } from '@/lib/monitoring/web-vitals';
+import { ThemeManager } from '@/components/providers/ThemeManager';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -15,12 +16,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <SessionProvider>
-      <GameOfLifeProvider>
-        <AnalyticsProvider>
-          {children}
-        </AnalyticsProvider>
-      </GameOfLifeProvider>
-    </SessionProvider>
+    <ThemeManager>
+      <SessionProvider>
+        <GameOfLifeProvider>
+          <AnalyticsProvider>
+            {children}
+          </AnalyticsProvider>
+        </GameOfLifeProvider>
+      </SessionProvider>
+    </ThemeManager>
   );
 } 

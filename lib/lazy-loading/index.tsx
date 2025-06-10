@@ -40,24 +40,6 @@ export const CodePreviewSkeleton = () => (
   </div>
 );
 
-// Create lazy component with custom loading
-export function createLazyComponent<T extends ComponentType<any>>(
-  importFn: () => Promise<{ default: T }>,
-  LoadingComponent: ComponentType = LoadingSkeleton
-): LazyExoticComponent<T> {
-  const LazyComponent = lazy(importFn);
-  
-  return lazy(() => 
-    Promise.resolve({ 
-      default: (props: any) => (
-        <Suspense fallback={<LoadingComponent />}>
-          <LazyComponent {...props} />
-        </Suspense>
-      )
-    })
-  ) as LazyExoticComponent<T>;
-}
-
 // Preload component for better UX
 export function preloadComponent<T extends ComponentType<any>>(
   importFn: () => Promise<{ default: T }>
