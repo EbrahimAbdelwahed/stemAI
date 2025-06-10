@@ -2,7 +2,7 @@
 
 import React, { FC, useEffect, useRef, useState } from 'react';
 
-// Global 3Dmol state with better tracking
+// Global 3Dmol state with better tracking - only initialize on client
 let $3Dmol: any = null;
 let loadAttempts = 0;
 const MAX_LOAD_ATTEMPTS = 3;
@@ -127,284 +127,146 @@ export const MolStarWrapper: FC<MolStarWrapperProps> = ({
   inputType,
   representationStyle = 'stick',
   pluginRef,
-  className,
-  style,
+  className = '',
+  style = {}
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState('Initializing 3D viewer...');
-  const viewerRef = useRef<any>(null);
-  const mountedRef = useRef(true);
+  const [status, setStatus] = useState('Initializing...');
+  const [isMounted, setIsMounted] = useState(false);
 
-  const defaultStyle: React.CSSProperties = {
-    position: 'relative',
-    width: '100%',
-    height: '500px',
-    minHeight: '300px',
-    backgroundColor: 'white',
-    overflow: 'hidden',
-    ...style,
-  };
+  // Ensure component is mounted (client-side only)
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    // Only run on client side after mounting
+    if (!isMounted || !moleculeInput || typeof window === 'undefined') {
+      return;
+    }
 
-    const initializeViewer = async () => {
-      console.log('[MolStarWrapper] ===== STARTING INITIALIZATION =====');
-      console.log('[MolStarWrapper] Input:', { moleculeInput, inputType, representationStyle });
-      console.log('[MolStarWrapper] Container available:', !!containerRef.current);
-      console.log('[MolStarWrapper] Component mounted:', mountedRef.current);
-      
-      if (!moleculeInput || !containerRef.current) {
-        console.log('[MolStarWrapper] Missing requirements, aborting');
-        setIsLoading(false);
-        setError('No molecule input or container available');
-        return;
-      }
+    let isCancelled = false;
 
+    const initializeMoleculeViewer = async () => {
       try {
-        console.log('[MolStarWrapper] Setting loading state to true');
         setIsLoading(true);
         setError(null);
-        setLoadingMessage('Loading 3D library...');
+        setStatus('Loading 3Dmol.js...');
 
-        // Load 3Dmol with detailed logging
-        console.log('[MolStarWrapper] About to call load3Dmol()...');
-        const viewer3d = await load3Dmol();
+        // Load 3Dmol
+        const $3Dmol = await load3Dmol();
         
-        if (cancelled || !mountedRef.current) {
-          console.log('[MolStarWrapper] Component unmounted during 3Dmol load');
-          return;
+        // Check if component was unmounted
+        if (isCancelled) return;
+
+        if (!containerRef.current) {
+          throw new Error('Container not available');
         }
 
-        console.log('[MolStarWrapper] 3Dmol loaded successfully, type:', typeof viewer3d);
-        setLoadingMessage('Creating 3D viewer...');
-
-        // Clear container
-        if (containerRef.current) {
-          console.log('[MolStarWrapper] Clearing container');
-          containerRef.current.innerHTML = '';
-        }
-
-        // Create viewer with error handling
-        let viewer;
-        try {
-          console.log('[MolStarWrapper] Creating viewer with 3Dmol.createViewer...');
-          viewer = viewer3d.createViewer(containerRef.current, {
-            backgroundColor: 'white',
-            antialias: true,
-          });
-          console.log('[MolStarWrapper] Viewer created successfully, type:', typeof viewer);
-        } catch (viewerError) {
-          console.error('[MolStarWrapper] Viewer creation error:', viewerError);
-          throw new Error(`Failed to create 3Dmol viewer: ${viewerError}`);
-        }
-
-        viewerRef.current = viewer;
+        setStatus('Creating 3D viewer...');
         
+        // Clear any existing content
+        containerRef.current.innerHTML = '';
+        
+        // Create viewer
+        const viewer = $3Dmol.createViewer(containerRef.current, {
+          backgroundColor: 'white',
+          antialias: true,
+          width: '100%',
+          height: '100%'
+        });
+
+        // Store reference if provided
         if (pluginRef) {
           pluginRef.current = viewer;
         }
 
-        console.log('[MolStarWrapper] Setting loading message to molecule data...');
-        setLoadingMessage('Loading molecule data...');
+        setStatus('Loading molecule...');
 
-        // Load molecule data with detailed logging
-        let moleculeData = moleculeInput;
+        // Add molecule based on input type
+        if (inputType === 'pdb' || inputType === 'sdf') {
+          viewer.addModel(moleculeInput, inputType);
+        } else {
+          // For other types, we might need to fetch the data first
+          // This is a simplified implementation
+          throw new Error(`Input type ${inputType} not fully supported yet`);
+        }
+
+        // Apply representation style
+        const styleConfig: any = {};
+        switch (representationStyle) {
+          case 'stick':
+            styleConfig.stick = { radius: 0.25 };
+            break;
+          case 'sphere':
+            styleConfig.sphere = { radius: 0.3 };
+            break;
+          case 'line':
+            styleConfig.line = { linewidth: 3 };
+            break;
+          case 'cartoon':
+            styleConfig.cartoon = { color: 'spectrum' };
+            break;
+          case 'surface':
+            styleConfig.surface = { opacity: 0.8 };
+            break;
+        }
+
+        viewer.setStyle({}, styleConfig);
+        viewer.zoomTo();
+        viewer.render();
+
+        setStatus('✅ 3D molecule loaded successfully!');
+        setIsLoading(false);
+
+      } catch (err) {
+        if (isCancelled) return;
         
-        if (inputType === 'pdb' && moleculeInput.length === 4) {
-          console.log('[MolStarWrapper] Fetching PDB data for:', moleculeInput);
-          const response = await fetch(`https://files.rcsb.org/download/${moleculeInput.toUpperCase()}.pdb`);
-          if (response.ok) {
-            moleculeData = await response.text();
-            console.log('[MolStarWrapper] PDB data fetched successfully, length:', moleculeData.length);
-          } else {
-            throw new Error(`Could not fetch PDB ${moleculeInput}: ${response.status}`);
-          }
-        } else if (inputType === 'cid') {
-          console.log('[MolStarWrapper] Fetching PubChem data for CID:', moleculeInput);
-          const response = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${moleculeInput}/SDF`);
-          if (response.ok) {
-            moleculeData = await response.text();
-            inputType = 'sdf';
-            console.log('[MolStarWrapper] PubChem data fetched successfully, length:', moleculeData.length);
-          } else {
-            throw new Error(`Could not fetch compound ${moleculeInput}: ${response.status}`);
-          }
-        }
-
-        if (cancelled || !mountedRef.current) {
-          console.log('[MolStarWrapper] Component unmounted during data fetch');
-          return;
-        }
-
-        console.log('[MolStarWrapper] Setting loading message to rendering...');
-        setLoadingMessage('Rendering molecule...');
-
-        // Add model with error handling
-        try {
-          console.log('[MolStarWrapper] Adding model to viewer');
-          console.log('[MolStarWrapper] Model data preview:', moleculeData.substring(0, 100));
-          console.log('[MolStarWrapper] Input type for viewer:', inputType === 'sdf' ? 'sdf' : inputType);
-          viewer.addModel(moleculeData, inputType === 'sdf' ? 'sdf' : inputType);
-          console.log('[MolStarWrapper] Model added successfully');
-        } catch (modelError) {
-          console.error('[MolStarWrapper] Model addition error:', modelError);
-          throw new Error(`Failed to add molecule model: ${modelError}`);
-        }
-
-        // Apply style with error handling
-        try {
-          console.log('[MolStarWrapper] Applying representation style:', representationStyle);
-          switch (representationStyle) {
-            case 'sphere':
-              viewer.setStyle({}, { sphere: { radius: 0.5 } });
-              break;
-            case 'line':
-              viewer.setStyle({}, { line: { linewidth: 2 } });
-              break;
-            case 'cartoon':
-              viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
-              break;
-            case 'surface':
-              viewer.setStyle({}, { stick: {} });
-              viewer.addSurface(viewer3d.SurfaceType.VDW, { opacity: 0.7 });
-              break;
-            default:
-              viewer.setStyle({}, { stick: { radius: 0.15 } });
-          }
-          console.log('[MolStarWrapper] Style applied successfully');
-        } catch (styleError) {
-          console.warn('[MolStarWrapper] Style application failed, using default:', styleError);
-          viewer.setStyle({}, { stick: { radius: 0.15 } });
-        }
-
-        // Render with error handling and multiple checks
-        try {
-          console.log('[MolStarWrapper] Starting zoom and render...');
-          viewer.zoomTo();
-          
-          // Wait a bit to ensure rendering completes
-          await new Promise(resolve => setTimeout(resolve, 200));
-          
-          if (cancelled || !mountedRef.current) {
-            console.log('[MolStarWrapper] Component unmounted before render completion');
-            return;
-          }
-          
-          console.log('[MolStarWrapper] Calling viewer.render()...');
-          viewer.render();
-          console.log('[MolStarWrapper] Render completed');
-          
-          // Final check before marking as complete
-          if (cancelled || !mountedRef.current) {
-            console.log('[MolStarWrapper] Component unmounted after render');
-            return;
-          }
-          
-        } catch (renderError) {
-          console.error('[MolStarWrapper] Render error:', renderError);
-          throw new Error(`Failed to render molecule: ${renderError}`);
-        }
-
-        if (mountedRef.current) {
-          console.log('[MolStarWrapper] ===== SUCCESSFULLY COMPLETED =====');
-          setIsLoading(false);
-          setLoadingMessage('');
-        }
-
-      } catch (error: any) {
-        if (!cancelled && mountedRef.current) {
-          console.error('[MolStarWrapper] ===== INITIALIZATION FAILED =====');
-          console.error('[MolStarWrapper] Error details:', error);
-          const errorMessage = error.message || 'Failed to load 3D viewer';
-          setError(errorMessage);
-          setIsLoading(false);
-          setLoadingMessage('');
-          
-          // If we've failed multiple times, provide helpful message
-          if (loadAttempts >= MAX_LOAD_ATTEMPTS) {
-            setError(`Failed to load 3D viewer after ${loadAttempts} attempts. This might be due to network issues or browser extensions interfering with the 3D library.`);
-          }
-        }
+        console.error('[MolStarWrapper] Error:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+        setStatus('❌ Failed to load molecule');
+        setIsLoading(false);
       }
     };
 
-    console.log('[MolStarWrapper] useEffect triggered, calling initializeViewer...');
-    initializeViewer();
+    initializeMoleculeViewer();
 
     return () => {
-      console.log('[MolStarWrapper] Cleanup function called');
-      cancelled = true;
-      if (viewerRef.current) {
-        try {
-          viewerRef.current.clear();
-        } catch (e) {
-          console.warn('[MolStarWrapper] Error clearing viewer:', e);
-        }
-        viewerRef.current = null;
-      }
+      isCancelled = true;
     };
-  }, [moleculeInput, inputType, representationStyle]);
+  }, [isMounted, moleculeInput, inputType, representationStyle, pluginRef]);
 
-  useEffect(() => {
-    return () => {
-      console.log('[MolStarWrapper] Component unmounting, setting mountedRef to false');
-      mountedRef.current = false;
-    };
-  }, []);
-
-  console.log('[MolStarWrapper] Render function called', { isLoading, error, moleculeInput });
-
-  if (!moleculeInput) {
+  // Don't render anything on server side
+  if (!isMounted) {
     return (
-      <div className={className} style={defaultStyle}>
-        <div className="flex items-center justify-center h-full text-gray-500">
-          No molecule data provided
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={className} style={defaultStyle}>
-        <div className="flex flex-col items-center justify-center h-full text-red-500 p-4">
-          <div className="text-center">
-            <div className="font-semibold mb-2">Error loading 3D viewer</div>
-            <div className="text-sm mb-4">{error}</div>
-            <div className="text-xs text-gray-500">
-              Tip: Try refreshing the page or check browser console for details
-            </div>
-          </div>
-        </div>
+      <div className={`w-full h-64 bg-gray-900 rounded-lg flex items-center justify-center ${className}`} style={style}>
+        <div className="text-gray-400">Loading 3D viewer...</div>
       </div>
     );
   }
 
   return (
-    <div className={className} style={defaultStyle}>
+    <div className={`relative w-full h-64 bg-gray-900 rounded-lg overflow-hidden ${className}`} style={style}>
       {isLoading && (
-        <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <div className="text-lg font-medium text-gray-700 mb-2">
-              {loadingMessage || 'Loading 3D viewer...'}
-            </div>
-            <div className="text-sm text-gray-500">
-              Attempt {loadAttempts} of {MAX_LOAD_ATTEMPTS}
-            </div>
-            <div className="text-xs text-gray-400 mt-2">
-              This may take a few moments...
-            </div>
-          </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-90 z-10">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2"></div>
+          <div className="text-sm text-gray-400">{status}</div>
         </div>
       )}
-      <div 
-        ref={containerRef} 
-        className="w-full h-full" 
-        style={{ position: 'relative' }}
+      
+      {error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900 bg-opacity-20 z-10">
+          <div className="text-red-400 text-sm mb-2">❌ Error</div>
+          <div className="text-red-300 text-xs text-center px-4">{error}</div>
+        </div>
+      )}
+
+      <div
+        ref={containerRef}
+        className="w-full h-full"
+        style={{ minHeight: '200px' }}
       />
     </div>
   );

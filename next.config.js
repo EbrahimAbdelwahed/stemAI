@@ -6,6 +6,9 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 const nextConfig = {
   experimental: {
     optimizePackageImports: ['@ai-sdk/react', 'react-markdown', 'plotly.js'],
+    // Enable modern optimizations for better performance
+    optimizeCss: true,
+    scrollRestoration: true,
   },
   // Turbopack configuration (moved from experimental.turbo)
   turbopack: {
@@ -68,8 +71,10 @@ const nextConfig = {
       // Enhanced code splitting for optimal bundle sizes
       config.optimization.splitChunks = {
         chunks: 'all',
-        minSize: 20000,
-        maxSize: 200000, // Reduced from 244000 for better splitting
+        minSize: 15000, // Reduced for better granular splitting
+        maxSize: 150000, // Smaller chunks for better loading
+        maxAsyncRequests: 15, // Allow more async chunks
+        maxInitialRequests: 8, // More initial chunks for parallel loading
         cacheGroups: {
           // Heavy visualization libraries - load only when needed
           plotly: {
@@ -222,6 +227,19 @@ const nextConfig = {
       ],
     },
     {
+      source: '/_next/static/(.*\\.css)',
+      headers: [
+        {
+          key: 'Content-Type',
+          value: 'text/css',
+        },
+        {
+          key: 'Cache-Control',
+          value: 'public, max-age=31536000, immutable',
+        },
+      ],
+    },
+    {
       source: '/_next/static/(.*)',
       headers: [
         {
@@ -235,11 +253,12 @@ const nextConfig = {
       headers: [
         {
           key: 'Cache-Control',
-          value: 'public, max-age=300, s-maxage=600', // 5 min browser, 10 min CDN
+          value: 'public, max-age=300, s-maxage=600',
         },
       ],
     },
   ],
+  
   // Enable modern output
   output: 'standalone',
   // Enable React strict mode for better performance debugging

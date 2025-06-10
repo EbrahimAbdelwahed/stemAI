@@ -26,6 +26,9 @@ function getMetricRating(name: string, value: number): 'good' | 'needs-improveme
 }
 
 function sendToAnalytics(metric: Metric) {
+  // Only run in browser environment
+  if (typeof window === 'undefined') return;
+  
   const webVitalMetric: WebVitalMetric = {
     name: metric.name,
     value: metric.value,
@@ -55,6 +58,12 @@ function sendToAnalytics(metric: Metric) {
 }
 
 export function initWebVitals() {
+  // Only initialize in browser environment
+  if (typeof window === 'undefined') {
+    console.warn('[Web Vitals] Skipping initialization on server');
+    return;
+  }
+
   try {
     onCLS(sendToAnalytics);
     onFCP(sendToAnalytics);
