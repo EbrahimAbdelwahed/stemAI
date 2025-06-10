@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 // Extend existing global declarations
 declare global {
@@ -109,6 +109,217 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
   // Check if this molecule was already successfully rendered
   const wasSuccessfullyRendered = enhancedSuccessfullyRendered.has(cacheKey);
   const cachedMolecule = enhancedMoleculeCache.get(cacheKey);
+
+  // Helper function to get color configuration
+  const getColorConfig = useCallback((colorScheme: string) => {
+    switch (colorScheme) {
+      case 'chain':
+        return { colorscheme: 'chain' };
+      case 'residue':
+        return { colorscheme: 'residue' };
+      case 'ss':
+        return { colorscheme: 'ss' };
+      case 'spectrum':
+        return { colorscheme: 'spectrum' };
+      case 'element':
+      default:
+        return { colorscheme: 'element' };
+    }
+  }, []);
+
+  // Helper function to parse selection regions
+  const parseSelection = useCallback((region: string) => {
+    // Simple parsing - can be extended for complex selections
+    if (region.includes('chain')) {
+      const match = region.match(/chain\s+([A-Z])/i);
+      return match ? { chain: match[1] } : {};
+    } else if (region.includes('resi')) {
+      const match = region.match(/resi\s+(\d+)/i);
+      return match ? { resi: parseInt(match[1]) } : {};
+    } else if (region.includes('resn')) {
+      const match = region.match(/resn\s+(\w+)/i);
+      return match ? { resn: match[1] } : {};
+    }
+    return {}; // Default to all atoms
+  }, []);
+
+  // Advanced molecule rendering function
+  const renderAdvancedMolecule = useCallback(async (
+    viewer: any, 
+    moleculeData: string, 
+    format: string, 
+    style: string,
+    coloring: string,
+    selections: any[],
+    surface: boolean,
+    surfType: string,
+    surfOpacity: number,
+    labels: boolean
+  ) => {
+    // Add model to viewer
+    viewer.addModel(moleculeData, format);
+    
+    // Apply main representation style with color scheme
+    const colorConfig = getColorConfig(coloring);
+    
+    switch (style) {
+      case 'sphere':
+        viewer.setStyle({}, { sphere: { radius: 0.5, ...colorConfig } });
+        break;
+      case 'line':
+        viewer.setStyle({}, { line: { linewidth: 2, ...colorConfig } });
+        break;
+      case 'cartoon':
+        viewer.setStyle({}, { cartoon: { ...colorConfig } });
+        break;
+      case 'ball-stick':
+        viewer.setStyle({}, { 
+          stick: { radius: 0.15, ...colorConfig },
+          sphere: { radius: 0.3, ...colorConfig }
+        });
+        break;
+      case 'surface':
+        // For surface style, still show stick underneath
+        viewer.setStyle({}, { stick: { radius: 0.1, ...colorConfig } });
+        break;
+      default:
+        viewer.setStyle({}, { stick: { radius: 0.15, ...colorConfig } });
+    }
+
+    // Apply region-specific selections
+    if (selections && selections.length > 0) {
+      for (const selection of selections) {
+        try {
+          const selectionObj = parseSelection(selection.region);
+          const selectionColorConfig = selection.color ? { color: selection.color } : colorConfig;
+          
+          switch (selection.style) {
+            case 'sphere':
+              viewer.addStyle(selectionObj, { sphere: { radius: 0.5, ...selectionColorConfig } });
+              break;
+            case 'line':
+              viewer.addStyle(selectionObj, { line: { linewidth: 2, ...selectionColorConfig } });
+              break;
+            case 'cartoon':
+              viewer.addStyle(selectionObj, { cartoon: { ...selectionColorConfig } });
+              break;
+            case 'surface':
+              viewer.addStyle(selectionObj, { stick: { radius: 0.1, ...selectionColorConfig } });
+              break;
+            default:
+              viewer.addStyle(selectionObj, { stick: { radius: 0.15, ...selectionColorConfig } });
+          }
+        } catch (selError) {
+          console.warn('[Advanced3DMolViewer] Invalid selection:', selection.region, selError);
+        }
+      }
+    }
+
+    // Add surface if requested
+    if (surface || style === 'surface') {
+      const surfaceTypeMap = {
+        'vdw': window.$3Dmol.SurfaceType.VDW,
+        'sas': window.$3Dmol.SurfaceType.SAS,
+        'ms': window.$3Dmol.SurfaceType.MS
+      };
+      
+      const surfaceType = surfaceTypeMap[surfType as keyof typeof surfaceTypeMap] || window.$3Dmol.SurfaceType.VDW;
+      viewer.addSurface(surfaceType, { opacity: surfOpacity, ...colorConfig });
+    }
+
+    // Add labels if requested
+    if (labels) {
+      // Add basic atom labels (for small molecules) or residue labels (for proteins)
+      if (format === 'pdb') {
+        // For PDB, add residue labels
+        viewer.addResLabels({}, { fontSize: 12, showBackground: false });
+      } else {
+        // For small molecules, add atom labels
+        viewer.addLabels({}, { fontSize: 10, showBackground: false });
+      }
+    }
+    
+    viewer.zoomTo();
+    viewer.render();
+    
+    // Small delay to ensure rendering is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }, [getColorConfig, parseSelection]);
+
+  // Helper function to render from cache
+  const renderFromCache = useCallback(async (cached: EnhancedCachedMolecule) => {
+    try {
+      setStatus('Loading from cache...');
+      setError(null);
+      setIsLoaded(false);
+
+      // Ensure 3Dmol is loaded
+      if (!window.$3Dmol) {
+        setStatus('Loading 3Dmol.js...');
+        const script = document.createElement('script');
+        script.src = 'https://3dmol.org/build/3Dmol-min.js';
+        script.async = true;
+        document.head.appendChild(script);
+        
+        await new Promise<void>((resolve, reject) => {
+          script.onload = () => {
+            if (window.$3Dmol) {
+              resolve();
+            } else {
+              setTimeout(() => {
+                if (window.$3Dmol) {
+                  resolve();
+                } else {
+                  reject(new Error('$3Dmol not available after script load'));
+                }
+              }, 1000);
+            }
+          };
+          script.onerror = () => reject(new Error('Failed to load 3Dmol script'));
+        });
+      }
+
+      if (!containerRef.current) {
+        throw new Error('Container not available');
+      }
+
+      setStatus('Rendering cached molecule...');
+      
+      // Clear container
+      containerRef.current.innerHTML = '';
+      
+      // Create viewer
+      const viewer = window.$3Dmol.createViewer(containerRef.current, {
+        backgroundColor: cached.backgroundColor,
+        antialias: true,
+        width: '100%',
+        height: '100%'
+      });
+
+      // Store viewer reference for resizing
+      viewerRef.current = viewer;
+
+      // Render from cached data with all options
+      await renderAdvancedMolecule(
+        viewer, cached.moleculeData, cached.format, cached.representationStyle, 
+        cached.colorScheme, cached.selections, cached.showSurface, 
+        cached.surfaceType, cached.surfaceOpacity, cached.showLabels
+      );
+      
+      renderedRef.current = true;
+      setStatus('✅ Advanced 3D model loaded from cache!');
+      setIsLoaded(true);
+      console.log('[Advanced3DMolViewer] Successfully rendered from cache:', cacheKey);
+      
+    } catch (error: any) {
+      console.error('[Advanced3DMolViewer] Cache render error:', error);
+      // If cache fails, remove from cache and try fresh
+      enhancedMoleculeCache.delete(cacheKey);
+      enhancedSuccessfullyRendered.delete(cacheKey);
+      setError(error.message);
+      setStatus('❌ Failed to load from cache');
+    }
+  }, [cacheKey, renderAdvancedMolecule]);
 
   // Add resize observer to handle container size changes
   useEffect(() => {
@@ -289,6 +500,7 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
           const cached: EnhancedCachedMolecule = {
             moleculeData,
             format,
+            timestamp: Date.now(),
             representationStyle,
             colorScheme,
             selections,
@@ -323,237 +535,7 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
 
       load3DMol();
     }
-  }, [backgroundColor, cachedMolecule, colorScheme, identifier, identifierType, renderAdvancedMolecule, renderFromCache, representationStyle, selections, showLabels, showSurface, surfaceOpacity, surfaceType, wasSuccessfullyRendered]);
-
-  // Helper function to render from cache
-  const renderFromCache = async (cached: EnhancedCachedMolecule) => {
-    try {
-      setStatus('Loading from cache...');
-      setError(null);
-      setIsLoaded(false);
-
-      // Ensure 3Dmol is loaded
-      if (!window.$3Dmol) {
-        setStatus('Loading 3Dmol.js...');
-        const script = document.createElement('script');
-        script.src = 'https://3dmol.org/build/3Dmol-min.js';
-        script.async = true;
-        document.head.appendChild(script);
-        
-        await new Promise<void>((resolve, reject) => {
-          script.onload = () => {
-            if (window.$3Dmol) {
-              resolve();
-            } else {
-              setTimeout(() => {
-                if (window.$3Dmol) {
-                  resolve();
-                } else {
-                  reject(new Error('$3Dmol not available after script load'));
-                }
-              }, 1000);
-            }
-          };
-          script.onerror = () => reject(new Error('Failed to load 3Dmol script'));
-        });
-      }
-
-      if (!containerRef.current) {
-        throw new Error('Container not available');
-      }
-
-      setStatus('Rendering cached molecule...');
-      
-      // Clear container
-      containerRef.current.innerHTML = '';
-      
-      // Create viewer
-      const viewer = window.$3Dmol.createViewer(containerRef.current, {
-        backgroundColor: cached.backgroundColor,
-        antialias: true,
-        width: '100%',
-        height: '100%'
-      });
-
-      // Store viewer reference for resizing
-      viewerRef.current = viewer;
-
-      // Render from cached data with all options
-      await renderAdvancedMolecule(
-        viewer, cached.moleculeData, cached.format, cached.representationStyle, 
-        cached.colorScheme, cached.selections, cached.showSurface, 
-        cached.surfaceType, cached.surfaceOpacity, cached.showLabels
-      );
-      
-      renderedRef.current = true;
-      setStatus('✅ Advanced 3D model loaded from cache!');
-      setIsLoaded(true);
-      console.log('[Advanced3DMolViewer] Successfully rendered from cache:', cacheKey);
-      
-    } catch (error: any) {
-      console.error('[Advanced3DMolViewer] Cache render error:', error);
-      // If cache fails, remove from cache and try fresh
-      enhancedMoleculeCache.delete(cacheKey);
-      enhancedSuccessfullyRendered.delete(cacheKey);
-      setError(error.message);
-      setStatus('❌ Failed to load from cache');
-    }
-  };
-
-  // Advanced molecule rendering function
-  const renderAdvancedMolecule = async (
-    viewer: any, 
-    moleculeData: string, 
-    format: string, 
-    style: string,
-    coloring: string,
-    selections: any[],
-    surface: boolean,
-    surfType: string,
-    surfOpacity: number,
-    labels: boolean
-  ) => {
-    // Add model to viewer
-    viewer.addModel(moleculeData, format);
-    
-    // Apply main representation style with color scheme
-    const colorConfig = getColorConfig(coloring);
-    
-    switch (style) {
-      case 'sphere':
-        viewer.setStyle({}, { sphere: { radius: 0.5, ...colorConfig } });
-        break;
-      case 'line':
-        viewer.setStyle({}, { line: { linewidth: 2, ...colorConfig } });
-        break;
-      case 'cartoon':
-        viewer.setStyle({}, { cartoon: { ...colorConfig } });
-        break;
-      case 'ball-stick':
-        viewer.setStyle({}, { 
-          stick: { radius: 0.15, ...colorConfig },
-          sphere: { radius: 0.3, ...colorConfig }
-        });
-        break;
-      case 'surface':
-        // For surface style, still show stick underneath
-        viewer.setStyle({}, { stick: { radius: 0.1, ...colorConfig } });
-        break;
-      default:
-        viewer.setStyle({}, { stick: { radius: 0.15, ...colorConfig } });
-    }
-
-    // Apply region-specific selections
-    if (selections && selections.length > 0) {
-      for (const selection of selections) {
-        try {
-          const selectionObj = parseSelection(selection.region);
-          const selectionColorConfig = selection.color ? { color: selection.color } : colorConfig;
-          
-          switch (selection.style) {
-            case 'sphere':
-              viewer.addStyle(selectionObj, { sphere: { radius: 0.5, ...selectionColorConfig } });
-              break;
-            case 'line':
-              viewer.addStyle(selectionObj, { line: { linewidth: 2, ...selectionColorConfig } });
-              break;
-            case 'cartoon':
-              viewer.addStyle(selectionObj, { cartoon: { ...selectionColorConfig } });
-              break;
-            case 'surface':
-              viewer.addStyle(selectionObj, { stick: { radius: 0.1, ...selectionColorConfig } });
-              break;
-            default:
-              viewer.addStyle(selectionObj, { stick: { radius: 0.15, ...selectionColorConfig } });
-          }
-        } catch (selError) {
-          console.warn('[Advanced3DMolViewer] Invalid selection:', selection.region, selError);
-        }
-      }
-    }
-
-    // Add surface if requested
-    if (surface || style === 'surface') {
-      const surfaceTypeMap = {
-        'vdw': window.$3Dmol.SurfaceType.VDW,
-        'sas': window.$3Dmol.SurfaceType.SAS,
-        'ms': window.$3Dmol.SurfaceType.MS
-      };
-      
-      const surfaceType = surfaceTypeMap[surfType as keyof typeof surfaceTypeMap] || window.$3Dmol.SurfaceType.VDW;
-      viewer.addSurface(surfaceType, { opacity: surfOpacity, ...colorConfig });
-    }
-
-    // Add labels if requested
-    if (labels) {
-      // Add basic atom labels (for small molecules) or residue labels (for proteins)
-      if (format === 'pdb') {
-        // For PDB, add residue labels
-        viewer.addResLabels({}, { fontSize: 12, showBackground: false });
-      } else {
-        // For small molecules, add atom labels
-        viewer.addLabels({}, { fontSize: 10, showBackground: false });
-      }
-    }
-    
-    viewer.zoomTo();
-    viewer.render();
-    
-    // Small delay to ensure rendering is complete
-    await new Promise(resolve => setTimeout(resolve, 100));
-  };
-
-  // Helper function to get color configuration
-  const getColorConfig = (colorScheme: string) => {
-    switch (colorScheme) {
-      case 'chain':
-        return { colorscheme: 'chain' };
-      case 'residue':
-        return { colorscheme: 'residue' };
-      case 'ss':
-        return { colorscheme: 'ss' };
-      case 'spectrum':
-        return { colorscheme: 'spectrum' };
-      case 'element':
-      default:
-        return {}; // Default element coloring
-    }
-  };
-
-  // Helper function to parse selection strings
-  const parseSelection = (region: string) => {
-    // Simple parser for common selection patterns
-    // This could be enhanced to support more complex 3Dmol selection syntax
-    if (region.includes('chain')) {
-      const chainMatch = region.match(/chain\s+([A-Za-z0-9]+)/i);
-      if (chainMatch) {
-        return { chain: chainMatch[1] };
-      }
-    }
-    if (region.includes('resi')) {
-      const resiMatch = region.match(/resi\s+(\d+)(-(\d+))?/i);
-      if (resiMatch) {
-        if (resiMatch[3]) {
-          // Range
-          return { resi: `${resiMatch[1]}-${resiMatch[3]}` };
-        } else {
-          // Single residue
-          return { resi: parseInt(resiMatch[1]) };
-        }
-      }
-    }
-    if (region.toLowerCase() === 'ligand' || region.toLowerCase() === 'hetero') {
-      return { hetflag: true };
-    }
-    
-    // Fallback: try to parse as raw 3Dmol selection
-    try {
-      return JSON.parse(region);
-    } catch {
-      console.warn('[Advanced3DMolViewer] Could not parse selection:', region);
-      return {};
-    }
-  };
+  }, [backgroundColor, cachedMolecule, colorScheme, identifier, identifierType, representationStyle, selections, showLabels, showSurface, surfaceOpacity, surfaceType, wasSuccessfullyRendered]);
 
   if (error) {
     return (
