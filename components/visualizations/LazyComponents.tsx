@@ -38,7 +38,7 @@ export const LazySimple3DMolViewer = lazy(() =>
 );
 
 export const LazyMolStarWrapper = lazy(() => 
-  import('./MolStarWrapper')
+  import('./MolStarWrapper').then(module => ({ default: module.MolStarWrapper }))
 );
 
 export const LazyMatterSimulator = lazy(() => 
