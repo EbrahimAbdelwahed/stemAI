@@ -94,173 +94,178 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
   }, [isLoaded]);
 
   useEffect(() => {
+    // All conditions moved inside - no early returns that affect hook order
+    let shouldExecute = true;
+    
     // Enhanced prevention logic
     if (renderedRef.current) {
       console.log('[Simple3DMolViewer] Already rendered in this instance:', cacheKey);
-      return;
+      shouldExecute = false;
     }
 
-    if (executedRef.current === cacheKey) {
+    if (shouldExecute && executedRef.current === cacheKey) {
       console.log('[Simple3DMolViewer] Already executed for:', cacheKey);
-      return;
+      shouldExecute = false;
     }
 
-    if (wasSuccessfullyRendered && cachedMolecule) {
+    if (shouldExecute && wasSuccessfullyRendered && cachedMolecule) {
       console.log('[Simple3DMolViewer] Using cached successful render for:', cacheKey);
       // Fast path: render immediately from cache
       renderFromCache(cachedMolecule);
-      return;
+      shouldExecute = false;
     }
 
-    const load3DMol = async () => {
-      console.log('[Simple3DMolViewer] Starting fresh initialization for:', cacheKey);
-      executedRef.current = cacheKey;
-      
-      try {
-        setStatus('Loading 3Dmol.js...');
-        setError(null);
-        setIsLoaded(false);
-
-        // Load 3Dmol script if not already loaded
-        if (!window.$3Dmol) {
-          const script = document.createElement('script');
-          script.src = 'https://3dmol.org/build/3Dmol-min.js';
-          script.async = true;
-          
-          await new Promise<void>((resolve, reject) => {
-            script.onload = () => {
-              if (window.$3Dmol) {
-                resolve();
-              } else {
-                setTimeout(() => {
-                  if (window.$3Dmol) {
-                    resolve();
-                  } else {
-                    reject(new Error('$3Dmol not available after script load'));
-                  }
-                }, 1000);
-              }
-            };
-            script.onerror = () => reject(new Error('Failed to load 3Dmol script'));
-            document.head.appendChild(script);
-          });
-        }
-
-        if (!containerRef.current) {
-          throw new Error('Container not available');
-        }
-
-        setStatus('Creating 3D viewer...');
+    if (shouldExecute) {
+      const load3DMol = async () => {
+        console.log('[Simple3DMolViewer] Starting fresh initialization for:', cacheKey);
+        executedRef.current = cacheKey;
         
-        // Clear container
-        containerRef.current.innerHTML = '';
-        
-        // Create viewer
-        const viewer = window.$3Dmol.createViewer(containerRef.current, {
-          backgroundColor: 'white',
-          antialias: true,
-          width: '100%',
-          height: '100%'
-        });
+        try {
+          setStatus('Loading 3Dmol.js...');
+          setError(null);
+          setIsLoaded(false);
 
-        // Store viewer reference for resizing
-        viewerRef.current = viewer;
-
-        setStatus('Loading molecule data...');
-
-        let moleculeData: string;
-        let format: string;
-
-        if (identifierType === 'smiles') {
-          // Load RDKit for SMILES processing
-          const rdkitWindow = window as any;
-          if (!rdkitWindow.RDKit) {
-            setStatus('Loading RDKit for SMILES processing...');
+          // Load 3Dmol script if not already loaded
+          if (!window.$3Dmol) {
+            const script = document.createElement('script');
+            script.src = 'https://3dmol.org/build/3Dmol-min.js';
+            script.async = true;
             
-            const rdkitScript = document.createElement('script');
-            rdkitScript.src = 'https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js';
-            rdkitScript.async = true;
-            document.head.appendChild(rdkitScript);
-
             await new Promise<void>((resolve, reject) => {
-              rdkitScript.onload = () => {
-                rdkitWindow.initRDKitModule({ 
-                  locateFile: (file: string) => `https://unpkg.com/@rdkit/rdkit/dist/${file}` 
-                }).then((rdkit: RDKitModule) => {
-                  console.log('RDKit loaded:', rdkit.version());
-                  rdkitWindow.RDKit = rdkit;
+              script.onload = () => {
+                if (window.$3Dmol) {
                   resolve();
-                }).catch(reject);
+                } else {
+                  setTimeout(() => {
+                    if (window.$3Dmol) {
+                      resolve();
+                    } else {
+                      reject(new Error('$3Dmol not available after script load'));
+                    }
+                  }, 1000);
+                }
               };
-              rdkitScript.onerror = () => reject(new Error('Failed to load RDKit'));
+              script.onerror = () => reject(new Error('Failed to load 3Dmol script'));
+              document.head.appendChild(script);
             });
           }
 
-          // Convert SMILES to SDF
-          const rdkit: RDKitModule = rdkitWindow.RDKit;
-          const mol = rdkit.get_mol(identifier);
-          if (mol && mol.is_valid()) {
-            moleculeData = mol.get_molblock();
-            format = 'sdf';
-            mol.delete();
-          } else {
-            if (mol) mol.delete();
-            throw new Error(`Invalid SMILES: ${identifier}`);
+          if (!containerRef.current) {
+            throw new Error('Container not available');
           }
-        } else if (identifierType === 'pdb' && identifier.length === 4) {
-          // Fetch PDB data
-          setStatus('Fetching PDB data...');
-          const response = await fetch(`https://files.rcsb.org/download/${identifier.toUpperCase()}.pdb`);
-          if (response.ok) {
-            moleculeData = await response.text();
-            format = 'pdb';
+
+          setStatus('Creating 3D viewer...');
+          
+          // Clear container
+          containerRef.current.innerHTML = '';
+          
+          // Create viewer
+          const viewer = window.$3Dmol.createViewer(containerRef.current, {
+            backgroundColor: 'white',
+            antialias: true,
+            width: '100%',
+            height: '100%'
+          });
+
+          // Store viewer reference for resizing
+          viewerRef.current = viewer;
+
+          setStatus('Loading molecule data...');
+
+          let moleculeData: string;
+          let format: string;
+
+          if (identifierType === 'smiles') {
+            // Load RDKit for SMILES processing
+            const rdkitWindow = window as any;
+            if (!rdkitWindow.RDKit) {
+              setStatus('Loading RDKit for SMILES processing...');
+              
+              const rdkitScript = document.createElement('script');
+              rdkitScript.src = 'https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js';
+              rdkitScript.async = true;
+              document.head.appendChild(rdkitScript);
+
+              await new Promise<void>((resolve, reject) => {
+                rdkitScript.onload = () => {
+                  rdkitWindow.initRDKitModule({ 
+                    locateFile: (file: string) => `https://unpkg.com/@rdkit/rdkit/dist/${file}` 
+                  }).then((rdkit: RDKitModule) => {
+                    console.log('RDKit loaded:', rdkit.version());
+                    rdkitWindow.RDKit = rdkit;
+                    resolve();
+                  }).catch(reject);
+                };
+                rdkitScript.onerror = () => reject(new Error('Failed to load RDKit'));
+              });
+            }
+
+            // Convert SMILES to SDF
+            const rdkit: RDKitModule = rdkitWindow.RDKit;
+            const mol = rdkit.get_mol(identifier);
+            if (mol && mol.is_valid()) {
+              moleculeData = mol.get_molblock();
+              format = 'sdf';
+              mol.delete();
+            } else {
+              if (mol) mol.delete();
+              throw new Error(`Invalid SMILES: ${identifier}`);
+            }
+          } else if (identifierType === 'pdb' && identifier.length === 4) {
+            // Fetch PDB data
+            setStatus('Fetching PDB data...');
+            const response = await fetch(`https://files.rcsb.org/download/${identifier.toUpperCase()}.pdb`);
+            if (response.ok) {
+              moleculeData = await response.text();
+              format = 'pdb';
+            } else {
+              throw new Error(`Could not fetch PDB ${identifier}: ${response.status}`);
+            }
+          } else if (identifierType === 'cid') {
+            // Fetch PubChem data
+            setStatus('Fetching PubChem data...');
+            const response = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${identifier}/SDF`);
+            if (response.ok) {
+              moleculeData = await response.text();
+              format = 'sdf';
+            } else {
+              throw new Error(`Could not fetch compound ${identifier}: ${response.status}`);
+            }
           } else {
-            throw new Error(`Could not fetch PDB ${identifier}: ${response.status}`);
+            throw new Error(`Unsupported identifier type: ${identifierType}`);
           }
-        } else if (identifierType === 'cid') {
-          // Fetch PubChem data
-          setStatus('Fetching PubChem data...');
-          const response = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${identifier}/SDF`);
-          if (response.ok) {
-            moleculeData = await response.text();
-            format = 'sdf';
-          } else {
-            throw new Error(`Could not fetch compound ${identifier}: ${response.status}`);
-          }
-        } else {
-          throw new Error(`Unsupported identifier type: ${identifierType}`);
+
+          // Cache the molecule data for future use
+          globalMoleculeCache.set(cacheKey, {
+            moleculeData,
+            format,
+            timestamp: Date.now(),
+            representationStyle
+          });
+
+          setStatus('Rendering molecule...');
+          
+          // Render the molecule
+          await renderMolecule(viewer, moleculeData, format, representationStyle);
+          
+          // Mark as successfully rendered
+          successfullyRendered.add(cacheKey);
+          renderedRef.current = true;
+          setStatus('✅ 3D model loaded successfully!');
+          setIsLoaded(true);
+          console.log('[Simple3DMolViewer] Successfully loaded and cached:', cacheKey);
+          
+        } catch (error: any) {
+          console.error('[Simple3DMolViewer] Error:', error);
+          setError(error.message);
+          setStatus('❌ Failed to load 3D model');
+          // Reset execution guard on error so it can be retried
+          executedRef.current = '';
         }
+      };
 
-        // Cache the molecule data for future use
-        globalMoleculeCache.set(cacheKey, {
-          moleculeData,
-          format,
-          timestamp: Date.now(),
-          representationStyle
-        });
-
-        setStatus('Rendering molecule...');
-        
-        // Render the molecule
-        await renderMolecule(viewer, moleculeData, format, representationStyle);
-        
-        // Mark as successfully rendered
-        successfullyRendered.add(cacheKey);
-        renderedRef.current = true;
-        setStatus('✅ 3D model loaded successfully!');
-        setIsLoaded(true);
-        console.log('[Simple3DMolViewer] Successfully loaded and cached:', cacheKey);
-        
-      } catch (error: any) {
-        console.error('[Simple3DMolViewer] Error:', error);
-        setError(error.message);
-        setStatus('❌ Failed to load 3D model');
-        // Reset execution guard on error so it can be retried
-        executedRef.current = '';
-      }
-    };
-
-    load3DMol();
+      load3DMol();
+    }
   }, [cacheKey]); // Using cacheKey instead of moleculeKey to include representationStyle
 
   // Helper function to render from cache

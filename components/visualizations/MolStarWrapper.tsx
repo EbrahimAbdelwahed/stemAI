@@ -141,6 +141,7 @@ export const MolStarWrapper: FC<MolStarWrapperProps> = ({
     setIsMounted(true);
   }, []);
 
+  // Main effect - always called, conditions inside
   useEffect(() => {
     // Only run on client side after mounting
     if (!isMounted || !moleculeInput || typeof window === 'undefined') {
