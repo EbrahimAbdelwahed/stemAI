@@ -6,8 +6,7 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 const nextConfig = {
   experimental: {
     optimizePackageImports: ['@ai-sdk/react', 'react-markdown', 'plotly.js'],
-    // Enable modern optimizations for better performance
-    optimizeCss: true,
+    // Removed optimizeCss due to build compatibility issues with critters package
     scrollRestoration: true,
   },
   // Turbopack configuration (moved from experimental.turbo)
