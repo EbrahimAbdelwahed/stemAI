@@ -1,67 +1,69 @@
 import { useAppStore } from './app-store';
+import { shallow } from 'zustand/shallow';
 
-// Chat hooks
-export const useChatActions = () => {
-  return useAppStore((state) => ({
-    setConversations: state.setConversations,
-    addConversation: state.addConversation,
-    updateConversation: state.updateConversation,
-    deleteConversation: state.deleteConversation,
-    setCurrentConversation: state.setCurrentConversation,
-    addMessage: state.addMessage,
-    setMessages: state.setMessages,
-    setSelectedModel: state.setSelectedModel,
-    setIsStreaming: state.setIsStreaming,
-  }));
-};
+/* -------------------------------------------------------------------------- */
+/*  Helpers – stable selectors                                                 */
+/* -------------------------------------------------------------------------- */
 
-export const useChatState = () => {
-  return useAppStore((state) => ({
-    conversations: state.conversations,
-    currentConversation: state.currentConversation,
-    selectedModel: state.selectedModel,
-    isStreaming: state.isStreaming,
-  }));
-};
+// --- Chat ------------------------------------------------------------------
+const chatActionsSelector = (state: any) => ({
+  setConversations: state.setConversations,
+  addConversation: state.addConversation,
+  updateConversation: state.updateConversation,
+  deleteConversation: state.deleteConversation,
+  setCurrentConversation: state.setCurrentConversation,
+  addMessage: state.addMessage,
+  setMessages: state.setMessages,
+  setSelectedModel: state.setSelectedModel,
+  setIsStreaming: state.setIsStreaming,
+});
 
-// Document hooks
-export const useDocumentActions = () => {
-  return useAppStore((state) => ({
-    setDocuments: state.setDocuments,
-    addDocument: state.addDocument,
-    updateDocument: state.updateDocument,
-    deleteDocument: state.deleteDocument,
-    setUploadProgress: state.setUploadProgress,
-    clearUploadProgress: state.clearUploadProgress,
-    setIsUploading: state.setIsUploading,
-  }));
-};
+const chatStateSelector = (state: any) => ({
+  conversations: state.conversations,
+  currentConversation: state.currentConversation,
+  selectedModel: state.selectedModel,
+  isStreaming: state.isStreaming,
+});
 
-export const useDocumentState = () => {
-  return useAppStore((state) => ({
-    documents: state.documents,
-    uploadProgress: state.uploadProgress,
-    isUploading: state.isUploading,
-  }));
-};
+export const useChatActions = () => useAppStore(chatActionsSelector, shallow);
+export const useChatState = () => useAppStore(chatStateSelector, shallow);
 
-// UI hooks
-export const useUIActions = () => {
-  return useAppStore((state) => ({
-    toggleSidebar: state.toggleSidebar,
-    setSidebarOpen: state.setSidebarOpen,
-    setTheme: state.setTheme,
-    setCurrentPage: state.setCurrentPage,
-  }));
-};
+// --- Documents -------------------------------------------------------------
+const docActionsSelector = (state: any) => ({
+  setDocuments: state.setDocuments,
+  addDocument: state.addDocument,
+  updateDocument: state.updateDocument,
+  deleteDocument: state.deleteDocument,
+  setUploadProgress: state.setUploadProgress,
+  clearUploadProgress: state.clearUploadProgress,
+  setIsUploading: state.setIsUploading,
+});
 
-export const useUIState = () => {
-  return useAppStore((state) => ({
-    sidebarOpen: state.sidebarOpen,
-    theme: state.theme,
-    currentPage: state.currentPage,
-  }));
-};
+const docStateSelector = (state: any) => ({
+  documents: state.documents,
+  uploadProgress: state.uploadProgress,
+  isUploading: state.isUploading,
+});
+
+export const useDocumentActions = () => useAppStore(docActionsSelector, shallow);
+export const useDocumentState = () => useAppStore(docStateSelector, shallow);
+
+// --- UI --------------------------------------------------------------------
+const uiActionsSelector = (state: any) => ({
+  toggleSidebar: state.toggleSidebar,
+  setSidebarOpen: state.setSidebarOpen,
+  setTheme: state.setTheme,
+  setCurrentPage: state.setCurrentPage,
+});
+
+const uiStateSelector = (state: any) => ({
+  sidebarOpen: state.sidebarOpen,
+  theme: state.theme,
+  currentPage: state.currentPage,
+});
+
+export const useUIActions = () => useAppStore(uiActionsSelector, shallow);
+export const useUIState = () => useAppStore(uiStateSelector, shallow);
 
 // Selectors for common use cases
 export const useCurrentConversation = () => {
