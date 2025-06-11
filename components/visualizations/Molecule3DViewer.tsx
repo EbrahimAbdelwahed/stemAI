@@ -339,7 +339,7 @@ const Molecule3DViewer: React.FC<Molecule3DViewerProps> = (props) => {
       abortController.abort();
       abortControllerRef.current = null;
     };
-  }, [moleculeKey, loadAttempt]); // Include loadAttempt for retries
+  }, [moleculeKey, loadAttempt, identifier, identifierType, loadRDKit, processSMILES]);
 
   // Reset execution guard when molecule changes
   useEffect(() => {

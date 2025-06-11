@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 // Extend existing global declarations
 declare global {
@@ -92,6 +92,108 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
       resizeObserver.disconnect();
     };
   }, [isLoaded]);
+
+  // Helper function to render molecule (stable reference)
+  const renderMolecule = useCallback(async (viewer: any, moleculeData: string, format: string, style: string) => {
+    // Add model to viewer
+    viewer.addModel(moleculeData, format);
+    
+    // Apply representation style
+    switch (style) {
+      case 'sphere':
+        viewer.setStyle({}, { sphere: { radius: 0.5 } });
+        break;
+      case 'line':
+        viewer.setStyle({}, { line: { linewidth: 2 } });
+        break;
+      case 'cartoon':
+        viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
+        break;
+      case 'surface':
+        viewer.setStyle({}, { stick: {} });
+        viewer.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.7 });
+        break;
+      default:
+        viewer.setStyle({}, { stick: { radius: 0.15 } });
+    }
+    
+    viewer.zoomTo();
+    viewer.render();
+    
+    // Small delay to ensure rendering is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }, []);
+
+  // Helper function to render from cache (stable reference)
+  const renderFromCache = useCallback(async (cached: CachedMolecule) => {
+    try {
+      setStatus('Loading from cache...');
+      setError(null);
+      setIsLoaded(false);
+
+      // Ensure 3Dmol is loaded
+      if (!window.$3Dmol) {
+        setStatus('Loading 3Dmol.js...');
+        const script = document.createElement('script');
+        script.src = 'https://3dmol.org/build/3Dmol-min.js';
+        script.async = true;
+        document.head.appendChild(script);
+        
+        await new Promise<void>((resolve, reject) => {
+          script.onload = () => {
+            if (window.$3Dmol) {
+              resolve();
+            } else {
+              setTimeout(() => {
+                if (window.$3Dmol) {
+                  resolve();
+                } else {
+                  reject(new Error('$3Dmol not available after script load'));
+                }
+              }, 1000);
+            }
+          };
+          script.onerror = () => reject(new Error('Failed to load 3Dmol script'));
+        });
+      }
+
+      if (!containerRef.current) {
+        throw new Error('Container not available');
+      }
+
+      setStatus('Rendering cached molecule...');
+      
+      // Clear container
+      containerRef.current.innerHTML = '';
+      
+      // Create viewer
+      const viewer = window.$3Dmol.createViewer(containerRef.current, {
+        backgroundColor: 'white',
+        antialias: true,
+        width: '100%',
+        height: '100%'
+      });
+
+      // Store viewer reference for resizing
+      viewerRef.current = viewer;
+
+      // Render from cached data
+      await renderMolecule(viewer, cached.moleculeData, cached.format, cached.representationStyle);
+      
+      renderedRef.current = true;
+      setStatus('✅ 3D model loaded from cache!');
+      setIsLoaded(true);
+      console.log('[Simple3DMolViewer] Successfully rendered from cache:', cacheKey);
+      
+    } catch (error: any) {
+      console.error('[Simple3DMolViewer] Cache render error:', error);
+      // If cache fails, remove from cache and try fresh
+      globalMoleculeCache.delete(cacheKey);
+      successfullyRendered.delete(cacheKey);
+      setError(error.message);
+      setStatus('❌ Failed to load from cache');
+    }
+  }, [cacheKey, renderMolecule]);
 
   useEffect(() => {
     // All conditions moved inside - no early returns that affect hook order
@@ -266,109 +368,7 @@ const Simple3DMolViewer: React.FC<Simple3DMolViewerProps> = ({
 
       load3DMol();
     }
-  }, [cacheKey]); // Using cacheKey instead of moleculeKey to include representationStyle
-
-  // Helper function to render from cache
-  const renderFromCache = async (cached: CachedMolecule) => {
-    try {
-      setStatus('Loading from cache...');
-      setError(null);
-      setIsLoaded(false);
-
-      // Ensure 3Dmol is loaded
-      if (!window.$3Dmol) {
-        setStatus('Loading 3Dmol.js...');
-        const script = document.createElement('script');
-        script.src = 'https://3dmol.org/build/3Dmol-min.js';
-        script.async = true;
-        document.head.appendChild(script);
-        
-        await new Promise<void>((resolve, reject) => {
-          script.onload = () => {
-            if (window.$3Dmol) {
-              resolve();
-            } else {
-              setTimeout(() => {
-                if (window.$3Dmol) {
-                  resolve();
-                } else {
-                  reject(new Error('$3Dmol not available after script load'));
-                }
-              }, 1000);
-            }
-          };
-          script.onerror = () => reject(new Error('Failed to load 3Dmol script'));
-        });
-      }
-
-      if (!containerRef.current) {
-        throw new Error('Container not available');
-      }
-
-      setStatus('Rendering cached molecule...');
-      
-      // Clear container
-      containerRef.current.innerHTML = '';
-      
-      // Create viewer
-      const viewer = window.$3Dmol.createViewer(containerRef.current, {
-        backgroundColor: 'white',
-        antialias: true,
-        width: '100%',
-        height: '100%'
-      });
-
-      // Store viewer reference for resizing
-      viewerRef.current = viewer;
-
-      // Render from cached data
-      await renderMolecule(viewer, cached.moleculeData, cached.format, cached.representationStyle);
-      
-      renderedRef.current = true;
-      setStatus('✅ 3D model loaded from cache!');
-      setIsLoaded(true);
-      console.log('[Simple3DMolViewer] Successfully rendered from cache:', cacheKey);
-      
-    } catch (error: any) {
-      console.error('[Simple3DMolViewer] Cache render error:', error);
-      // If cache fails, remove from cache and try fresh
-      globalMoleculeCache.delete(cacheKey);
-      successfullyRendered.delete(cacheKey);
-      setError(error.message);
-      setStatus('❌ Failed to load from cache');
-    }
-  };
-
-  // Helper function to render molecule
-  const renderMolecule = async (viewer: any, moleculeData: string, format: string, style: string) => {
-    // Add model to viewer
-    viewer.addModel(moleculeData, format);
-    
-    // Apply representation style
-    switch (style) {
-      case 'sphere':
-        viewer.setStyle({}, { sphere: { radius: 0.5 } });
-        break;
-      case 'line':
-        viewer.setStyle({}, { line: { linewidth: 2 } });
-        break;
-      case 'cartoon':
-        viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
-        break;
-      case 'surface':
-        viewer.setStyle({}, { stick: {} });
-        viewer.addSurface(window.$3Dmol.SurfaceType.VDW, { opacity: 0.7 });
-        break;
-      default:
-        viewer.setStyle({}, { stick: { radius: 0.15 } });
-    }
-    
-    viewer.zoomTo();
-    viewer.render();
-    
-    // Small delay to ensure rendering is complete
-    await new Promise(resolve => setTimeout(resolve, 100));
-  };
+  }, [cacheKey, cachedMolecule, identifier, identifierType, renderFromCache, renderMolecule, representationStyle, wasSuccessfullyRendered]);
 
   if (error) {
     return (

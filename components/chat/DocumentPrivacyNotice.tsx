@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -19,7 +19,7 @@ export default function DocumentPrivacyNotice() {
   const [loading, setLoading] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     if (!session?.user) return;
     
     setLoading(true);
@@ -34,7 +34,7 @@ export default function DocumentPrivacyNotice() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session]);
 
   const deleteDocument = async (id: number) => {
     try {
@@ -82,7 +82,7 @@ export default function DocumentPrivacyNotice() {
     if (showDocuments && session?.user) {
       fetchDocuments();
     }
-  }, [showDocuments, session?.user]);
+  }, [showDocuments, session, fetchDocuments]);
 
   if (!session?.user) {
     return (

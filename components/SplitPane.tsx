@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 interface SplitPaneProps {
   left: React.ReactNode;
@@ -32,7 +32,7 @@ export default function SplitPane({
     document.body.style.userSelect = 'none';
   };
   
-  const onMouseMove = (e: MouseEvent) => {
+  const onMouseMove = useCallback((e: MouseEvent) => {
     if (!splitPaneRef.current) return;
     
     const containerWidth = splitPaneRef.current.offsetWidth;
@@ -49,15 +49,15 @@ export default function SplitPane({
     );
     
     setLeftWidth(newLeftWidth);
-  };
+  }, [minLeft, minRight]);
   
-  const onMouseUp = () => {
+  const onMouseUp = useCallback(() => {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
     
     // Re-enable text selection
     document.body.style.userSelect = '';
-  };
+  }, [onMouseMove]);
   
   // Clean up event listeners on component unmount
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function SplitPane({
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
-  }, []);
+  }, [onMouseMove, onMouseUp]);
   
   return (
     <div 

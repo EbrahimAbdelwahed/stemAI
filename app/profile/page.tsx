@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Typography } from '@/components/ui/Typography'
@@ -49,18 +49,19 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      fetchUserData()
-    } else if (status !== 'loading') {
-      setIsLoading(false)
-    }
-  }, [session, status])
-
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
+      const userId = session?.user?.id;
+      if (!userId) {
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true)
       setError(null)
+
+      // Prepare container for conversation summaries
+      let conversationSummaries: ConversationSummary[] = [];
 
       // Fetch conversations
       const conversationsResponse = await fetch('/api/conversations')
@@ -68,7 +69,7 @@ export default function ProfilePage() {
         const conversationsData = await conversationsResponse.json()
         
         // Transform conversation data to include message counts
-        const conversationSummaries: ConversationSummary[] = await Promise.all(
+        conversationSummaries = await Promise.all(
           conversationsData.conversations.map(async (conv: any) => {
             try {
               const messagesResponse = await fetch(`/api/conversations/${conv.id}`)
@@ -103,20 +104,20 @@ export default function ProfilePage() {
         setDocuments(documentsData.documents || [])
       }
 
-      // Calculate stats from fetched data
-      const totalMessages = (conversations as any[]).reduce((sum, conv) => sum + conv.messageCount, 0)
-      const modelCounts = (conversations as any[]).reduce((acc: Record<string, number>, conv) => {
+      // Calculate stats from fetched data using the freshly fetched summaries
+      const totalMessages = (conversationSummaries as any[]).reduce((sum, conv) => sum + conv.messageCount, 0)
+      const modelCounts = (conversationSummaries as any[]).reduce((acc: Record<string, number>, conv) => {
         acc[conv.model] = (acc[conv.model] || 0) + 1
         return acc
       }, {})
       const favoriteModel = Object.entries(modelCounts).sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'gpt-4o'
 
       const userStats: UserStats = {
-        totalConversations: conversations.length,
+        totalConversations: conversationSummaries.length,
         totalMessages,
         favoriteModel,
         joinDate: new Date().toISOString(),
-        lastActive: (conversations[0] as any)?.lastActivity || new Date().toISOString()
+        lastActive: (conversationSummaries[0] as any)?.lastActivity || new Date().toISOString()
       }
       setStats(userStats)
 
@@ -126,7 +127,15 @@ export default function ProfilePage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [session?.user?.id, setConversations, setDocuments])
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchUserData()
+    } else if (status !== 'loading') {
+      setIsLoading(false)
+    }
+  }, [session, status, fetchUserData])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

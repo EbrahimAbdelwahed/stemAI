@@ -199,7 +199,7 @@ export default function ChatPage() {
     
     // Track page view for chat page
     realDataCollector.storePageView('/chat', document.referrer, navigator.userAgent);
-  }, [setCurrentConversation, selectedModel, realDataCollector, sessionStartTime]);
+  }, [setCurrentConversation, selectedModel, realDataCollector, sessionStartTime, setMessages]);
 
   useEffect(() => {
     if (chatId && messages.length > 0) {

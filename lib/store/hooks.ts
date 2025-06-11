@@ -1,5 +1,4 @@
 import { useAppStore } from './app-store';
-import { shallow } from 'zustand/shallow';
 
 /* -------------------------------------------------------------------------- */
 /*  Helpers – stable selectors                                                 */
@@ -25,8 +24,8 @@ const chatStateSelector = (state: any) => ({
   isStreaming: state.isStreaming,
 });
 
-export const useChatActions = () => useAppStore(chatActionsSelector, shallow);
-export const useChatState = () => useAppStore(chatStateSelector, shallow);
+export const useChatActions = () => useAppStore(chatActionsSelector);
+export const useChatState = () => useAppStore(chatStateSelector);
 
 // --- Documents -------------------------------------------------------------
 const docActionsSelector = (state: any) => ({
@@ -45,8 +44,8 @@ const docStateSelector = (state: any) => ({
   isUploading: state.isUploading,
 });
 
-export const useDocumentActions = () => useAppStore(docActionsSelector, shallow);
-export const useDocumentState = () => useAppStore(docStateSelector, shallow);
+export const useDocumentActions = () => useAppStore(docActionsSelector);
+export const useDocumentState = () => useAppStore(docStateSelector);
 
 // --- UI --------------------------------------------------------------------
 const uiActionsSelector = (state: any) => ({
@@ -62,8 +61,8 @@ const uiStateSelector = (state: any) => ({
   currentPage: state.currentPage,
 });
 
-export const useUIActions = () => useAppStore(uiActionsSelector, shallow);
-export const useUIState = () => useAppStore(uiStateSelector, shallow);
+export const useUIActions = () => useAppStore(uiActionsSelector);
+export const useUIState = () => useAppStore(uiStateSelector);
 
 // Selectors for common use cases
 export const useCurrentConversation = () => {

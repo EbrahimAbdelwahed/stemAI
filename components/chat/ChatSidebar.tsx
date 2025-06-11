@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { useConversations } from '@/hooks/useConversations';
 import { ConversationItem } from './ConversationItem';
@@ -201,9 +202,11 @@ export function ChatSidebar({ currentConversationId, onClose }: ChatSidebarProps
           <Link href="/profile" className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#2f2f2f] transition-colors text-sm text-[#8e8ea0] hover:text-white" onClick={onClose}>
             <div className="w-6 h-6 rounded-full bg-[#2f2f2f] flex items-center justify-center">
               {session.user.image ? (
-                <img 
+                <Image 
                   src={session.user.image} 
                   alt="Profile" 
+                  width={24} 
+                  height={24} 
                   className="w-6 h-6 rounded-full"
                 />
               ) : (

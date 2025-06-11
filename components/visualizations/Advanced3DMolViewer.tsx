@@ -535,7 +535,7 @@ const Advanced3DMolViewer: React.FC<Advanced3DMolViewerProps> = ({
 
       load3DMol();
     }
-  }, [backgroundColor, cachedMolecule, colorScheme, identifier, identifierType, representationStyle, selections, showLabels, showSurface, surfaceOpacity, surfaceType, wasSuccessfullyRendered]);
+  }, [backgroundColor, cachedMolecule, cacheKey, colorScheme, identifier, identifierType, representationStyle, selections, showLabels, showSurface, surfaceOpacity, surfaceType, wasSuccessfullyRendered, renderFromCache, renderAdvancedMolecule]);
 
   if (error) {
     return (
