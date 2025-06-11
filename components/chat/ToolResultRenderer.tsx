@@ -195,14 +195,17 @@ export function estimateThinkingTime(toolName: string, result?: any): number {
   };
   
   let baseTime = baseTimes[toolName] || 20;
-  
-  // Add variation based on result complexity
+
+  // Increase thinking time deterministically based on result payload size so that
+  // server- and client-side renders stay in sync and avoid hydration mismatches.
+  // (Using Math.random() at render time caused different HTML between server and
+  //  client, triggering "Hydration failed…" warnings.)
+
   if (result && typeof result === 'object') {
     const resultSize = JSON.stringify(result).length;
     if (resultSize > 10000) baseTime += 10;
     if (resultSize > 50000) baseTime += 15;
   }
-  
-  // Add some randomness to feel natural
-  return baseTime + Math.floor(Math.random() * 10) - 5;
+
+  return baseTime;
 } 
