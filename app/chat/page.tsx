@@ -135,7 +135,10 @@ export default function ChatPage() {
       const storedChatId = localStorage.getItem(LOCAL_STORAGE_CHAT_ID_KEY);
       if (storedChatId) {
         chatIdToUse = storedChatId;
-        setCurrentConversation(storedChatId);
+        // Avoid redundant state updates that can cause render loops
+        if (storedChatId !== chatId) {
+          setCurrentConversation(storedChatId);
+        }
       } else {
         const newChatId = uuidv4();
         chatIdToUse = newChatId;
