@@ -199,8 +199,7 @@ export default function ChatPage() {
     
     // Track page view for chat page
     realDataCollector.storePageView('/chat', document.referrer, navigator.userAgent);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setCurrentConversation, setMessages, selectedModel, realDataCollector, sessionStartTime]); // Added missing dependencies
+  }, [setCurrentConversation, selectedModel, realDataCollector, sessionStartTime]);
 
   useEffect(() => {
     if (chatId && messages.length > 0) {
