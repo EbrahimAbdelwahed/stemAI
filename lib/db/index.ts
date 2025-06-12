@@ -22,7 +22,10 @@ if (process.env.DATABASE_URL) {
     console.log('RAG_ENABLED is not true - RAG features disabled, but auth/core features available.');
   }
 } else {
-  console.error('DATABASE_URL environment variable is not set. Database features will be unavailable.');
+  // Only warn on the server; on the client we never expect DATABASE_URL to be present
+  if (typeof window === 'undefined') {
+    console.error('DATABASE_URL environment variable is not set. Database features will be unavailable.');
+  }
 }
 
 export { db, sql };

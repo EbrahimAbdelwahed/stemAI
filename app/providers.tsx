@@ -26,4 +26,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       </SessionProvider>
     </ThemeManager>
   );
-} 
+}
+
+export default Providers; 

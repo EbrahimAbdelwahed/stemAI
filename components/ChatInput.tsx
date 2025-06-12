@@ -3,7 +3,8 @@ import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Paperclip, Send, X, Bot, ChevronDown, Zap } from 'lucide-react';
-import { useAppStore } from '@/lib/store/app-store';
+import { useChatState, useChatActions } from '@/lib/store/hooks';
+import { useDocumentState } from '@/lib/store/hooks';
 
 const models = [
   { id: 'grok-3-mini', name: 'Grok 3 Mini', provider: 'xAI' },
@@ -32,11 +33,9 @@ export default function ChatInput({
   disabled = false,
   onFileUpload,
 }: ChatInputProps) {
-  const { selectedModel, setSelectedModel, isUploading } = useAppStore(state => ({
-    selectedModel: state.selectedModel,
-    setSelectedModel: state.setSelectedModel,
-    isUploading: state.isUploading,
-  }));
+  const { selectedModel } = useChatState();
+  const { setSelectedModel } = useChatActions();
+  const { isUploading } = useDocumentState();
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
