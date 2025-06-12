@@ -5,21 +5,24 @@ import * as schema from './schema';
 let sql: any = null;
 let db: NeonHttpDatabase<typeof schema> | null = null;
 
-if (process.env.RAG_ENABLED === 'true') {
-  console.log('RAG_ENABLED is true, attempting to initialize database...');
-  
-  if (!process.env.DATABASE_URL) {
-    console.error('DATABASE_URL environment variable is not set, but RAG_ENABLED is true.');
-    throw new Error('DATABASE_URL environment variable is not set, but RAG_ENABLED is true.');
-  }
+// Always initialize database connection if DATABASE_URL is available
+// This ensures auth functionality works even if RAG is disabled
+if (process.env.DATABASE_URL) {
+  console.log('DATABASE_URL found, initializing database connection...');
   
   sql = neon(process.env.DATABASE_URL, { 
     fetchOptions: { cache: 'no-store' } 
   });
   db = drizzle(sql, { schema });
-  console.log('Database initialized for RAG.');
+  console.log('Database connection initialized successfully.');
+  
+  if (process.env.RAG_ENABLED === 'true') {
+    console.log('RAG_ENABLED is true - full RAG functionality available.');
+  } else {
+    console.log('RAG_ENABLED is not true - RAG features disabled, but auth/core features available.');
+  }
 } else {
-  console.log('RAG_ENABLED is not true (or not set), skipping database initialization.');
+  console.error('DATABASE_URL environment variable is not set. Database features will be unavailable.');
 }
 
 export { db, sql };

@@ -1,3 +1,7 @@
+
+
+
+
 # STEM AI Assistant Documentation
 
 Welcome to the STEM AI Assistant documentation! This comprehensive guide will help you understand, set up, and use the STEM AI Assistant application.

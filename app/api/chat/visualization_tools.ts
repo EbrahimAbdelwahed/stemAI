@@ -51,7 +51,7 @@ export const displayMolecule3D = tool({
       .describe("The molecular identifier (e.g., '1CRN' for PDB, 'CCO' for ethanol SMILES, '702' for PubChem CID)"),
     
     // Advanced visualization options
-    representationStyle: z.enum(['stick', 'sphere', 'line', 'cartoon', 'surface', 'ball-stick']).default('stick')
+    representationStyle: z.enum(['stick', 'sphere', 'line', 'cartoon', 'surface', 'ball-stick'])
       .describe("3D representation style: 'stick' for bond representation, 'sphere' for space-filling, 'line' for wireframe, 'cartoon' for protein secondary structure, 'surface' for molecular surface, 'ball-stick' for combined spheres and sticks"),
     colorScheme: z.enum(['element', 'chain', 'residue', 'ss', 'spectrum', 'custom']).default('element')
       .describe("Coloring scheme: 'element' for atomic colors, 'chain' for protein chains, 'residue' for amino acid types, 'ss' for secondary structure, 'spectrum' for gradient coloring, 'custom' for user-defined colors"),
@@ -60,7 +60,7 @@ export const displayMolecule3D = tool({
     selections: z.array(z.object({
       region: z.string().describe("Selection criteria using 3Dmol syntax (e.g., 'chain A', 'resi 25-50', 'ligand', 'hetero')"),
       style: z.enum(['stick', 'sphere', 'line', 'cartoon', 'surface']).describe("Representation style for this specific region"),
-      color: z.string().optional().describe("Custom color for this region (e.g., 'red', '#FF0000', 'rgb(255,0,0)')")
+      color: z.string().describe("Custom color for this region (e.g., 'red', '#FF0000', 'rgb(255,0,0)')")
     })).optional().describe("Array of region-specific styling rules to apply different representations to parts of the molecule"),
     
     // Surface options
@@ -113,7 +113,7 @@ export const plotFunction2D = tool({
       .describe("The mathematical function to plot using math.js syntax, e.g., 'sin(x)', 'x^2', 'log(x)', 'exp(x)'."),
     variable: z.object({
       name: z.string().describe("Name of the variable, typically 'x'."),
-      range: z.tuple([z.number(), z.number()]).describe("Range [min, max] for the variable.")
+      range: z.array(z.number()).length(2).describe("Range [min, max] for the variable as an array of two numbers.")
     }).describe("The variable definition with name and range."),
     plotType: z.enum(['line', 'scatter']).default('line')
       .describe("Type of 2D plot: 'line' for continuous curves, 'scatter' for discrete points."),
@@ -154,7 +154,7 @@ export const plotFunction3D = tool({
       .describe("The mathematical function to plot using math.js syntax, e.g., 'sin(x) * cos(y)', 'x^2 + y^2', 'exp(-(x^2 + y^2))'."),
     variables: z.array(z.object({
       name: z.string().describe("Name of the variable, typically 'x' or 'y'."),
-      range: z.tuple([z.number(), z.number()]).describe("Range [min, max] for the variable.")
+      range: z.array(z.number()).length(2).describe("Range [min, max] for the variable as an array of two numbers.")
     })).length(2).describe("Array of exactly 2 variables with their names and ranges."),
     plotType: z.enum(['surface', 'contour']).default('surface')
       .describe("Type of 3D plot: 'surface' for 3D surface plots, 'contour' for contour plots."),
@@ -245,11 +245,30 @@ export const displayPhysicsSimulation = tool({
 
 // OCR tool for extracting text from images
 export const performOCR = tool({
-  description: 'Extract text and mathematical formulas from images using GPT-4o vision capabilities. Use this when users request OCR, text extraction from images, or want to process screenshots/photos of documents, handwritten notes, or any image containing text.',
+  description: 'Extract text and mathematical formulas from IMAGE FILES ONLY (JPG, PNG, GIF, BMP, WEBP, etc.). This tool is EXCLUSIVELY for processing screenshots, photos, scanned images, or any visual content that contains text or mathematical formulas. DO NOT use this tool for: PDF documents, Word documents, text files, or any non-image files - their text content is already extracted during upload and available in the conversation context. Only use when the user specifically uploads an image file or asks for OCR/text extraction from a visual image.',
   parameters: ocrToolSchema,
   execute: async (params) => {
     try {
       console.log('[visualization_tools] performOCR execute called with:', params);
+      
+      // Validate that this is actually an image MIME type
+      if (!params.mimeType.startsWith('image/')) {
+        return {
+          error: true,
+          errorMessage: `OCR tool can only process image files. Received: ${params.mimeType}. For document files, the text is already extracted and available in the conversation context.`,
+          details: { mimeType: params.mimeType, imageSize: params.imageData?.length }
+        };
+      }
+      
+      // Validate supported image formats
+      const supportedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+      if (!supportedFormats.includes(params.mimeType.toLowerCase())) {
+        return {
+          error: true,
+          errorMessage: `Unsupported image format: ${params.mimeType}. Supported formats: ${supportedFormats.join(', ')}`,
+          details: { mimeType: params.mimeType, imageSize: params.imageData?.length }
+        };
+      }
       
       const result = await executeOCR(params);
       

@@ -212,10 +212,10 @@ const MarkdownRenderer = memo(({ content, className = '', darkMode = true }: Mar
             );
           },
           
-          // Enhanced list styling
+          // Enhanced list styling with better spacing and structure
           ul({ children, ...props }) {
             return (
-              <ul className="list-disc list-inside space-y-1 my-3 ml-4" {...props}>
+              <ul className="space-y-2 my-4 ml-6" {...props}>
                 {children}
               </ul>
             );
@@ -223,7 +223,7 @@ const MarkdownRenderer = memo(({ content, className = '', darkMode = true }: Mar
           
           ol({ children, ...props }) {
             return (
-              <ol className="list-decimal list-inside space-y-1 my-3 ml-4" {...props}>
+              <ol className="space-y-2 my-4 ml-6" {...props}>
                 {children}
               </ol>
             );
@@ -231,9 +231,18 @@ const MarkdownRenderer = memo(({ content, className = '', darkMode = true }: Mar
           
           li({ children, ...props }) {
             return (
-              <li className="text-gray-700 dark:text-gray-300 leading-relaxed" {...props}>
+              <li className="text-gray-700 dark:text-gray-300 leading-relaxed relative before:content-['•'] before:absolute before:-ml-4 before:text-blue-500 before:font-bold" {...props}>
                 {children}
               </li>
+            );
+          },
+          
+          // Enhanced paragraph styling
+          p({ children, ...props }) {
+            return (
+              <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4" {...props}>
+                {children}
+              </p>
             );
           },
         }}

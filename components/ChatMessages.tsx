@@ -1,8 +1,5 @@
-'use client';
-
-import React from 'react';
-import { Message as VercelMessage, ToolInvocation as VercelToolInvocation } from 'ai';
-import { motion } from 'framer-motion';
+import React, { Suspense } from 'react';
+import { Message as VercelMessage } from 'ai';
 import dynamic from 'next/dynamic';
 import PendingVisualizationCard from './visualizations/PendingVisualizationCard';
 import Simple3DMolViewer from './visualizations/Simple3DMolViewer';
@@ -12,20 +9,15 @@ import OCRResult from './OCRResult';
 // import PlotlyPlotter from './visualizations/PlotlyPlotter'; // Keep if other tools are added soon
 import VisualizationErrorBoundary from './visualizations/VisualizationErrorBoundary';
 import CodePreview from './CodePreview';
-import { Card } from './ui/Card';
 import { Typography } from './ui/Typography';
+import { ToolLoadingState } from './ui/LoadingStates';
+import { StreamingMarkdown } from './ui/StreamingMarkdown';
+import { ToolResultRenderer, estimateThinkingTime } from './chat/ToolResultRenderer';
+import { ThinkingTracesArtifact } from './chat/ThinkingTracesArtifact';
 
-// Dynamic import for MarkdownRenderer to optimize performance
-const MarkdownRenderer = dynamic(() => import('./MarkdownRenderer'), {
-  loading: () => (
-    <div className="animate-pulse">
-      <div className="h-4 bg-gray-700 rounded mb-2"></div>
-      <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
-      <div className="h-4 bg-gray-700 rounded w-1/2"></div>
-    </div>
-  ),
-  ssr: false
-});
+// Temporary direct import to fix chunk loading issue
+// TODO: Restore dynamic import after resolving chunk loading
+import MarkdownRenderer from './MarkdownRenderer';
 
 const PlotlyPlotter = dynamic(() => import('./visualizations/PlotlyPlotter'), {
   ssr: false,
@@ -44,7 +36,11 @@ interface ChatMessagesProps {
 }
 
 // Enhanced helper to clean up AI content, removing specific markers and improving formatting
-function formatAndCleanContent(content: string): string {
+function formatAndCleanContent(content: string | null | undefined): string {
+  if (!content || typeof content !== 'string') {
+    return '';
+  }
+  
   let cleanedContent = content;
   
   // Remove visualization markers
@@ -59,208 +55,178 @@ function formatAndCleanContent(content: string): string {
   return cleanedContent.trim();
 }
 
+// Visualization renderer component
+const VisualizationRenderer: React.FC<{ toolName: string; result: unknown }> = ({ toolName, result }) => {
+  const renderVisualization = () => {
+    switch (toolName) {
+      case 'displayMolecule3D':
+        // Check if the result has advanced options
+        const hasAdvancedOptions = result && typeof result === 'object' && result !== null && (
+          (result as any).representationStyle !== 'stick' ||
+          (result as any).colorScheme !== 'element' ||
+          ((result as any).selections && (result as any).selections.length > 0) ||
+          (result as any).showSurface ||
+          (result as any).showLabels ||
+          (result as any).backgroundColor !== 'white'
+        );
+
+        // Use Advanced3DMolViewer if any advanced options are present
+        if (hasAdvancedOptions) {
+          return <Advanced3DMolViewer {...(result as any)} />;
+        } else {
+          // Fall back to Simple3DMolViewer for basic usage
+          return <Simple3DMolViewer {...(result as any)} />;
+        }
+
+      case 'displayPlotlyChart':
+      case 'plotFunction2D':
+      case 'plotFunction3D':
+        return <PlotlyPlotter {...(result as any)} />;
+
+      case 'displayPhysicsSimulation':
+        return <MatterSimulator {...(result as any)} />;
+
+      case 'performOCR':
+        return <OCRResult {...(result as any)} />;
+
+      default:
+        // Fallback for unhandled tools - show raw result
+        return (
+          <div>
+            <Typography variant="small" className="text-neutral-400 mb-2 font-medium">
+              Tool: {toolName}
+            </Typography>
+            <CodePreview code={JSON.stringify(result, null, 2)} />
+          </div>
+        );
+    }
+  };
+
+  return (
+    <VisualizationErrorBoundary fallback={
+      <div className="text-center py-4">
+        <Typography variant="small" color="error">
+          Error rendering tool output
+        </Typography>
+      </div>
+    }>
+      <Suspense fallback={
+        <div className="flex items-center justify-center py-8">
+          <div className="w-6 h-6 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+          <span className="ml-2 text-sm text-neutral-400">Loading visualization...</span>
+        </div>
+      }>
+        {renderVisualization()}
+      </Suspense>
+    </VisualizationErrorBoundary>
+  );
+};
+
 export default function ChatMessages({ messages }: ChatMessagesProps) {
   if (!messages || messages.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="glass rounded-2xl p-8 text-center"
-      >
-        <div className="max-w-md mx-auto">
-          <motion.div 
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center"
-          >
-            <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="text-center max-w-md">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[#2f2f2f] flex items-center justify-center">
+            <svg className="w-6 h-6 text-[#8e8ea0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-          </motion.div>
-          <h3 className="text-xl font-semibold text-gray-200 mb-2">
-            Welcome to STEM AI Assistant
+          </div>
+          <h3 className="text-xl font-medium text-white mb-2">
+            How can I help you today?
           </h3>
-          <p className="text-gray-400">
-            Start a conversation! Ask about science, math, engineering, or upload documents for analysis.
+          <p className="text-[#8e8ea0]">
+            Ask about science, mathematics, or upload documents for analysis
           </p>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {messages.map((message, index) => (
-        <motion.div
-          key={message.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.05 }}
-          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-        >
-          <div className={`max-w-3xl ${message.role === 'user' ? 'ml-12' : 'mr-12'}`}>
-            <div className={`group relative ${message.role === 'user' ? '' : ''}`}>
-              {/* Avatar and Name */}
-              <div className={`flex items-center space-x-3 mb-2 ${message.role === 'user' ? 'justify-end' : ''}`}>
-                {message.role !== 'user' && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="relative"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-gray-900" />
-                  </motion.div>
-                )}
-                <span className={`text-sm font-medium ${
-                  message.role === 'user' ? 'text-blue-400' : 'text-gray-300'
-                }`}>
-                  {message.role === 'user' ? 'You' : 'STEM AI'}
-                </span>
-                {message.role === 'user' && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center"
-                  >
-                    <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Message Bubble */}
-              <motion.div
-                whileHover={{ scale: 1.01 }}
-                className={`relative rounded-2xl px-6 py-4 ${
-                  message.role === 'user'
-                    ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg'
-                    : 'glass border border-gray-800/50 text-gray-100'
-                }`}
-              >
-                {/* Decorative corner for AI messages */}
-                {message.role !== 'user' && (
-                  <div className="absolute -left-2 top-4 w-3 h-3 bg-gray-900/50 transform rotate-45 border-l border-t border-gray-800/50" />
-                )}
-
-                {/* Message content */}
-                {message.content && (
-                  <div className={`prose prose-sm max-w-none ${
-                    message.role === 'user' ? 'prose-invert' : 'prose-gray dark:prose-invert'
-                  } prose-headings:text-gray-100 prose-p:text-gray-200 prose-strong:text-gray-100 prose-em:text-gray-200 prose-code:text-gray-100`}>
-                    <MarkdownRenderer 
-                      content={formatAndCleanContent(message.content)}
-                      className="break-words text-gray-100"
-                      darkMode={true}
-                    />
+    <div className="flex-1 overflow-y-auto bg-[#212121]">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {messages.map((message, index) => (
+          <div key={message.id} className="animate-fade-in">
+            {message.role === 'user' ? (
+              // User message - keep on right side like ChatGPT
+              <div className="flex justify-end mb-6">
+                <div className="max-w-2xl">
+                  <div className="bg-[#2f2f2f] rounded-2xl px-4 py-3 border border-[#4d4d4d]">
+                    <p className="text-white leading-relaxed">{message.content}</p>
                   </div>
-                )}
-
-                {/* Tool Invocations */}
-                {message.toolInvocations?.map((toolInvocation) => {
-                  const { toolCallId, toolName, state } = toolInvocation;
-                  const result = 'result' in toolInvocation ? toolInvocation.result : null;
-                  const error = 'error' in toolInvocation ? toolInvocation.error : null;
-
-                  return (
-                    <motion.div 
-                      key={toolCallId}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-4"
-                    >
-                      <div className="glass rounded-xl p-4 border border-gray-700/50">
-                        <VisualizationErrorBoundary fallback={
-                          <div className="text-center py-4">
-                            <p className="text-sm text-red-400">
-                              Error rendering tool output
-                            </p>
-                          </div>
-                        }>
-                          {state === 'call' && (
-                            <PendingVisualizationCard 
-                              status="loading" 
-                              message={`AI is calling tool: ${toolName}...`}
-                            />
-                          )}
-                          {state === 'result' && result && (
-                            <>
-                              {toolName === 'displayMolecule3D' && (
-                                (() => {
-                                  const hasAdvancedOptions = result && (
-                                    result.representationStyle !== 'stick' ||
-                                    result.colorScheme !== 'element' ||
-                                    (result.selections && result.selections.length > 0) ||
-                                    result.showSurface ||
-                                    result.showLabels ||
-                                    result.backgroundColor !== 'white'
-                                  );
-
-                                  if (hasAdvancedOptions) {
-                                    return <Advanced3DMolViewer {...(result as any)} />;
-                                  } else {
-                                    return <Simple3DMolViewer {...(result as any)} />;
-                                  }
-                                })()
-                              )}
-                              {toolName === 'displayPlotlyChart' && (
-                                <PlotlyPlotter {...(result as any)} /> 
-                              )}
-                              {(toolName === 'plotFunction2D' || toolName === 'plotFunction3D') && (
-                                <PlotlyPlotter {...(result as any)} />
-                              )}
-                              {toolName === 'displayPhysicsSimulation' && (
-                                <MatterSimulator {...(result as any)} />
-                              )}
-                              {toolName === 'performOCR' && (
-                                <OCRResult {...(result as any)} />
-                              )}
-                              {!['displayMolecule3D', 'displayPlotlyChart', 'plotFunction2D', 'plotFunction3D', 'displayPhysicsSimulation', 'performOCR'].includes(toolName) && (
-                                <div>
-                                  <p className="text-sm text-gray-400 mb-2 font-medium">
-                                    Tool: {toolName}
-                                  </p>
-                                  <CodePreview code={JSON.stringify(result, null, 2)} />
-                                </div>
-                              )}
-                            </>
-                          )}
-                          {state === 'partial-call' && (
-                            <PendingVisualizationCard 
-                              status="loading" 
-                              message={`Preparing tool: ${toolName}...`}
-                            />
-                          )}
-                          {error && (
-                            <PendingVisualizationCard 
-                              status="error" 
-                              message={`Error using tool: ${toolName}`}
-                              errorMessage={typeof error === 'string' ? error : JSON.stringify(error)}
-                            />
-                          )}
-                        </VisualizationErrorBoundary>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-
-                {/* Timestamp */}
-                <div className={`mt-2 text-xs ${
-                  message.role === 'user' ? 'text-blue-200/60' : 'text-gray-500'
-                }`}>
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
-              </motion.div>
-            </div>
+              </div>
+            ) : (
+              // AI message - ChatGPT style with avatar
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  {/* AI Avatar */}
+                  <div className="w-8 h-8 rounded-full bg-[#19c37d] flex items-center justify-center flex-shrink-0 mt-1">
+                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                  </div>
+                  
+                  <div className="flex-1 space-y-4 min-w-0">
+                    {/* Thinking traces from reasoning parts */}
+                    {message.parts?.map((part, partIndex) => {
+                      if (part.type === 'reasoning') {
+                        return (
+                          <ThinkingTracesArtifact
+                            key={`${message.id}-reasoning-${partIndex}`}
+                            reasoning={part.details?.map(detail => 
+                              detail.type === 'text' ? detail.text : (detail.type === 'redacted' ? '<redacted>' : '')
+                            ).join('') || ''}
+                            reasoningDetails={part.details}
+                            metadata={{
+                              tokenCount: part.details?.map(d => 
+                                d.type === 'text' ? (d.text || '').split(' ').length : 0
+                              ).reduce((a, b) => a + b, 0),
+                            }}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+
+                    {/* Message content */}
+                    {message.content && typeof message.content === 'string' && (
+                      <div className="prose prose-invert max-w-none">
+                        {message.role === 'assistant' && message.id === messages[messages.length - 1]?.id && index === messages.length - 1 ? (
+                          // Latest message - use streaming if available
+                          <StreamingMarkdown 
+                            text={formatAndCleanContent(message.content)}
+                            className="text-[#c5c5d2] leading-relaxed"
+                            speed={10}
+                            streamingMode="word"
+                          />
+                        ) : (
+                          // Completed message
+                          <MarkdownRenderer 
+                            content={formatAndCleanContent(message.content)}
+                            className="text-[#c5c5d2] leading-relaxed"
+                            darkMode={true}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tool results using new renderer */}
+                    {message.toolInvocations?.map((toolInvocation, toolIndex) => (
+                      <ToolResultRenderer
+                        key={`${message.id}-tool-${toolIndex}`}
+                        toolInvocation={toolInvocation}
+                        thinkingTime={estimateThinkingTime(toolInvocation.toolName, 'result' in toolInvocation ? toolInvocation.result : undefined)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </motion.div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 } 

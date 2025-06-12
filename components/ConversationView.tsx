@@ -1,12 +1,11 @@
 import React from 'react';
+import { useCurrentMessages, useChatState } from '@/lib/store/hooks';
 import { Message } from '@ai-sdk/react';
 
-interface ConversationViewProps {
-  messages: Message[];
-  isLoading?: boolean;
-}
+export default function ConversationView() {
+  const messages = useCurrentMessages();
+  const { isStreaming: isLoading } = useChatState();
 
-export default function ConversationView({ messages, isLoading = false }: ConversationViewProps) {
   // Helper function to format code blocks
   const formatMessageContent = (content: string) => {
     if (!content) return null;
@@ -106,7 +105,7 @@ export default function ConversationView({ messages, isLoading = false }: Conver
               {formatMessageContent(message.content)}
               
               {/* Show toolInvocations if they exist */}
-              {message.toolInvocations?.map((tool, index) => (
+              {(message as any).toolInvocations?.map((tool: any, index: number) => (
                 <div 
                   key={`${message.id}-tool-${index}`}
                   className="mt-3 rounded border border-gray-700 bg-gray-900 p-3"

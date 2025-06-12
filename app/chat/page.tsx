@@ -1,31 +1,101 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useChat, Message as VercelMessage } from '@ai-sdk/react'; 
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import ModelSelector from '../../components/ModelSelector';
+import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
+import { useChat, Message as VercelMessage } from '@ai-sdk/react';
 import ChatInput from '../../components/ChatInput';
-import ChatMessages from '../../components/ChatMessages';
-import FileUploader from '../../components/FileUploader';
+import DocumentPrivacyNotice from '../../components/chat/DocumentPrivacyNotice';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/Card';
+import { Typography } from '../../components/ui/Typography';
+import { AppLayout } from '../../components/layout/AppLayout';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import { track } from '@vercel/analytics';
+import { ChatFlowTracker, trackError } from '@/lib/analytics/event-tracking';
+import { RealDataCollector } from '@/lib/analytics/real-data-collector';
+import { TypingIndicator } from '../../components/ui/LoadingStates';
+import { ChatGPTLayout } from '../../components/chat/ChatGPTLayout';
+import { ChatMainArea } from '../../components/chat/ChatMainArea';
+import { useAppStore } from '@/lib/store/app-store';
+import { useChatActions, useChatState, useDocumentActions, useDocumentState } from '@/lib/store/hooks';
+import { LoadingSkeleton } from '@/lib/lazy-loading';
+
+// Lazy load heavy components
+const LazyChatMessages = lazy(() => import('../../components/ChatMessages'));
 
 // Message type from Vercel AI SDK is used directly.
 // The SDK's Message type should include toolInvocations for Vercel AI SDK v3+.
 type Message = VercelMessage;
 
-type ModelType = 'grok-3-mini' | 'gemini-2-flash' | 'gpt-4o' | 'claude-3-haiku';
+type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307' | 'o4-mini';
 
 const LOCAL_STORAGE_CHAT_ID_KEY = 'stem-ai-chat-id';
 const LOCAL_STORAGE_MESSAGES_KEY_PREFIX = 'stem-ai-chat-messages-';
 
 export default function ChatPage() {
-  const [chatId, setChatId] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<ModelType>('gpt-4o');
-  const [isUploading, setIsUploading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { currentConversation: chatId, selectedModel } = useChatState();
+  const { setCurrentConversation, setSelectedModel, setMessages: setMessagesInStore } = useChatActions();
+  const { isUploading } = useDocumentState();
+  const { setIsUploading } = useDocumentActions();
+
+  const [sessionStartTime] = useState<number>(Date.now());
+  const realDataCollector = RealDataCollector.getInstance();
+  
+  const onFinishHandler = useCallback((message: Message) => {
+    console.log('[ChatPage] onFinish called with message:', message);
+    track('ChatResponded', { model: selectedModel, messageId: message.id });
+    
+    const responseTime = performance.now() - ((window as unknown as { lastMessageTime?: number }).lastMessageTime || 0);
+    ChatFlowTracker.aiResponseReceived({
+      model: selectedModel,
+      response_time: responseTime,
+      token_count: message.content?.length || 0,
+      tool_calls: message.toolInvocations?.length || 0,
+      success: true
+    });
+    
+    if (message.toolInvocations && message.toolInvocations.length > 0) {
+      message.toolInvocations.forEach((tool, index) => {
+        let tool_type = 'unknown';
+        if (tool.toolName === 'displayMolecule3D') tool_type = '3dmol';
+        else if (tool.toolName === 'displayPhysicsSimulation') tool_type = 'physics';
+        else if (tool.toolName === 'plotFunction2D' || tool.toolName === 'plotFunction3D' || tool.toolName === 'displayPlotlyChart') tool_type = 'plotly';
+        else if (tool.toolName.toLowerCase().includes('search') || tool.toolName.toLowerCase().includes('ookument')) tool_type = 'rag';
+
+        realDataCollector.storeUserEvent('tool_invoked', {
+          tool_name: tool.toolName,
+          tool_args: tool.args,
+          tool_result: 'result' in tool ? tool.result : 'pending',
+          tool_type: tool_type,
+          model: selectedModel,
+          chatId: chatId,
+          response_time: responseTime,
+          tool_index: index,
+          total_tools: message.toolInvocations?.length || 0
+        }, '/chat');
+      });
+    }
+    
+    realDataCollector.storeUserEvent('ai_response_completed', {
+      model: selectedModel,
+      response_time: responseTime,
+      content_length: message.content?.length || 0,
+      tool_count: message.toolInvocations?.length || 0,
+      chatId: chatId,
+    }, '/chat');
+  }, [selectedModel, chatId, realDataCollector]);
+
+  const onErrorHandler = useCallback((err: Error) => {
+    console.error('[ChatPage] Chat error from onError callback:', err);
+    toast.error(`Chat error: ${err.message}`);
+    track('ChatError', { model: selectedModel, error: err.message });
+    trackError(err, 'ChatPage', true);
+  }, [selectedModel]);
+
+  // Create reactive body object for useChat
+  const chatBody = useMemo(() => ({
+    model: selectedModel,
+  }), [selectedModel]);
 
   const { 
     messages, 
@@ -40,75 +110,130 @@ export default function ChatPage() {
     append 
   } = useChat({
     api: '/api/chat',
-    body: {
-      model: selectedModel,
-    },
-    id: chatId, 
-    onFinish: (message) => {
-      console.log('[ChatPage] onFinish called with message:', message);
-      track('ChatResponded', { model: selectedModel, messageId: message.id });
-    },
-    onError: (err) => {
-      console.error('[ChatPage] Chat error from onError callback:', err);
-      toast.error(`Chat error: ${err.message}`);
-      track('ChatError', { model: selectedModel, error: err.message });
-    },
+    body: chatBody,
+    id: chatId,
+    onFinish: onFinishHandler,
+    onError: onErrorHandler,
   });
 
   useEffect(() => {
-    const storedChatId = localStorage.getItem(LOCAL_STORAGE_CHAT_ID_KEY);
-    if (storedChatId) {
-      setChatId(storedChatId);
-      const storedMessages = localStorage.getItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${storedChatId}`);
-      if (storedMessages) {
+    // Check URL parameters first for new chat ID
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlChatId = urlParams.get('id');
+    
+    let chatIdToUse = '';
+    
+    if (urlChatId) {
+      // Use URL chat ID if provided (from nuova chat button)
+      chatIdToUse = urlChatId;
+      setCurrentConversation(urlChatId);
+      localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, urlChatId);
+      // Clear URL parameter after using it
+      window.history.replaceState({}, '', '/chat');
+    } else {
+      // Fallback to localStorage or create new
+      const storedChatId = localStorage.getItem(LOCAL_STORAGE_CHAT_ID_KEY);
+      if (storedChatId) {
+        chatIdToUse = storedChatId;
+        // Avoid redundant state updates that can cause render loops
+        if (storedChatId !== chatId) {
+          setCurrentConversation(storedChatId);
+        }
+      } else {
+        const newChatId = uuidv4();
+        chatIdToUse = newChatId;
+        setCurrentConversation(newChatId);
+        localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, newChatId);
+      }
+    }
+    
+    // Load messages for the selected chat ID
+    if (chatIdToUse) {
+      const storedMessages = localStorage.getItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatIdToUse}`);
+      if (storedMessages && !urlChatId) {
+        // Only restore messages if not a new chat from URL
         try {
           const parsedMessages: Message[] = JSON.parse(storedMessages);
           const validMessages = parsedMessages.map(msg => ({
             ...msg,
-            parts: msg.parts && msg.parts.length > 0 
-              ? msg.parts 
-              : (msg.content ? [{ type: 'text' as const, text: msg.content as string }] : [])
+            // Ensure `parts` is always an array, even if empty, for consistent rendering logic.
+            // And provide a default text part if only content string exists, for older SDK versions.
+            parts: msg.parts && msg.parts.length > 0 ? msg.parts : (msg.content ? [{ type: 'text' as const, text: msg.content as string }] : [])
           }));
           setMessages(validMessages);
+          
+          // Track session resume
+          realDataCollector.storeUserEvent('chat_session_resumed', {
+            chatId: chatIdToUse,
+            message_count: validMessages.length,
+            model: selectedModel
+          }, '/chat');
         } catch (e) {
           console.error("Failed to parse messages from localStorage", e);
-          localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${storedChatId}`);
-          setMessages([]); 
+          localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatIdToUse}`);
+          setMessages([
+            {
+              id: 'welcome',
+              role: 'assistant',
+              content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
+              parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
+            }
+          ]); 
         }
+      } else {
+        // New chat or no stored messages - start fresh
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'assistant',
+            content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
+            parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
+          }
+        ]);
+        
+        // Track new session start
+        realDataCollector.storeUserEvent('chat_session_started', {
+          chatId: chatIdToUse,
+          model: selectedModel,
+          session_start_time: sessionStartTime
+        }, '/chat');
       }
-    } else {
-      const newChatId = uuidv4();
-      setChatId(newChatId);
-      localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, newChatId);
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
-          parts: [{ type: 'text' as const, text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
-        }
-      ]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setChatId, setMessages]); // Adjusted dependencies to reflect what causes initialization
+    
+    // Track page view for chat page
+    realDataCollector.storePageView('/chat', document.referrer, navigator.userAgent);
+  }, [setCurrentConversation, selectedModel, realDataCollector, sessionStartTime, setMessages]);
 
   useEffect(() => {
     if (chatId && messages.length > 0) {
       try {
         localStorage.setItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatId}`, JSON.stringify(messages));
+        if (chatId) {
+          setMessagesInStore(chatId, messages as any);
+        }
       } catch (e) {
         console.error("Failed to save messages to localStorage", e);
         toast.error("Could not save chat history. Storage might be full.");
       }
     }
-  }, [chatId, messages]);
+  }, [chatId, messages, setMessagesInStore]);
 
   // useEffect for processing visualizationSignal and fetchVisualizationParams is removed.
   // fetchVisualizationParams function is removed.
 
   const handleModelChange = (newModel: ModelType) => {
+    const previousModel = selectedModel;
     setSelectedModel(newModel);
     track('ModelChanged', { newModel });
+    
+    // Enhanced model change tracking
+    realDataCollector.storeUserEvent('model_changed', {
+      previous_model: previousModel,
+      new_model: newModel,
+      chatId: chatId,
+      conversation_length: messages.length,
+      session_duration: Date.now() - sessionStartTime
+    }, '/chat');
   };
 
   const handleFileUploadCallback = useCallback((files: File[]) => {
@@ -122,13 +247,35 @@ export default function ChatPage() {
     // Process multiple files
     const processFiles = async () => {
       for (const file of files) {
-        const isImage = file.type.startsWith('image/');
+        // More robust image detection
+        const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(file.name);
+        const isDocument = !isImage && (/\.(pdf|txt|doc|docx)$/i.test(file.name) || file.type.includes('document') || file.type.includes('text'));
+        
+        // Validate file type
+        if (!isImage && !isDocument) {
+          toast.error(`Unsupported file type: ${file.name}. Please upload images (JPG, PNG, GIF, BMP, WEBP) or documents (PDF, TXT, DOC, DOCX).`);
+          continue;
+        }
+        
         const endpoint = isImage ? '/api/ocr' : '/api/documents';
+        const fileType = isImage ? 'image' : 'document';
         
         try {
-          console.log(`[ChatPage] Processing ${isImage ? 'image' : 'document'}: ${file.name}`);
-          toast.info(`Processing ${file.name}...`);
-          track('FileUploadStarted', { fileName: file.name, fileSize: file.size, fileType: isImage ? 'image' : 'document' });
+          console.log(`[ChatPage] Processing ${fileType}: ${file.name} (MIME: ${file.type})`);
+          toast.info(`Processing ${file.name} as ${fileType}...`);
+          track('FileUploadStarted', { fileName: file.name, fileSize: file.size, fileType });
+          
+          // Enhanced upload tracking
+          const uploadStartTime = performance.now();
+          realDataCollector.storeUserEvent('file_upload_started', {
+            file_name: file.name,
+            file_size: file.size,
+            file_type: fileType,
+            mime_type: file.type,
+            chatId: chatId,
+            model: selectedModel,
+            upload_start_time: uploadStartTime
+          }, '/chat');
 
           const formData = new FormData();
           formData.append('file', file);
@@ -157,7 +304,7 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
               id: uuidv4(),
               role: 'assistant',
               content: ocrMessage,
-              parts: [{ type: 'text', text: ocrMessage }]
+              parts: [{ type: 'text' as const, text: ocrMessage }]
             });
 
             toast.success(`OCR completed for ${file.name}! ${result.extractedText.length} characters extracted.`);
@@ -167,6 +314,18 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
               hasFormulas: result.hasFormulas,
               processingTime: result.processingTime 
             });
+            
+            // Enhanced OCR success tracking
+            realDataCollector.storeUserEvent('ocr_completed', {
+              file_name: file.name,
+              text_length: result.extractedText.length,
+              has_formulas: result.hasFormulas,
+              processing_time: result.processingTime,
+              file_size: file.size,
+              chatId: chatId,
+              model: selectedModel,
+              success: true
+            }, '/chat');
           } else {
             // Handle document upload result
             toast.success(`${file.name} uploaded successfully! You can now ask questions about it.`);
@@ -174,15 +333,38 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
               id: uuidv4(),
               role: 'user',
               content: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`,
-              parts: [{type: 'text', text: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`}]
+              parts: [{type: 'text' as const, text: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`}]
             });
             track('FileUploadSucceeded', { fileName: file.name, documentId: result.documentId });
+            
+            // Enhanced document upload success tracking
+            realDataCollector.storeUserEvent('document_uploaded', {
+              file_name: file.name,
+              document_id: result.documentId,
+              file_size: file.size,
+              chatId: chatId,
+              model: selectedModel,
+              processing_time: performance.now() - uploadStartTime,
+              success: true
+            }, '/chat');
           }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
           console.error(`File processing error for ${file.name}:`, error);
-          toast.error(`Processing failed for ${file.name}: ${error.message}`);
-          track('FileProcessingFailed', { fileName: file.name, error: error.message, fileType: isImage ? 'image' : 'document' });
+          toast.error(`Processing failed for ${file.name}: ${errorMessage}`);
+          track('FileProcessingFailed', { fileName: file.name, error: errorMessage, fileType });
+          
+          // Enhanced error tracking
+          realDataCollector.storeUserEvent('file_upload_failed', {
+            file_name: file.name,
+            file_size: file.size,
+            file_type: fileType,
+            error_message: errorMessage,
+            chatId: chatId,
+            model: selectedModel,
+            success: false
+          }, '/chat');
         }
       }
     };
@@ -190,12 +372,25 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
     processFiles().finally(() => {
       setIsUploading(false);
     });
-  }, [append, setIsUploading]);
+  }, [append, setIsUploading, chatId, selectedModel, realDataCollector]);
 
   const handleClearChat = () => {
+    const oldChatId = chatId;
+    const sessionDuration = Date.now() - sessionStartTime;
+    const messageCount = messages.length;
+    
+    // Track session end before clearing
+    realDataCollector.storeUserEvent('chat_session_ended', {
+      chatId: oldChatId,
+      session_duration: sessionDuration,
+      message_count: messageCount,
+      model: selectedModel,
+      end_reason: 'user_cleared'
+    }, '/chat');
+    
     const newChatId = uuidv4();
     if(chatId) localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatId}`);
-    setChatId(newChatId); 
+    setCurrentConversation(newChatId); 
     localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, newChatId);
     const welcomeMessage: Message = {
       id: 'welcome',
@@ -206,233 +401,48 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
     setMessages([welcomeMessage]);
     toast.info('Chat cleared and new session started.');
     track('ChatCleared');
+    
+    // Track new session start
+    realDataCollector.storeUserEvent('chat_session_started', {
+      chatId: newChatId,
+      model: selectedModel,
+      session_start_time: Date.now(),
+      previous_session: oldChatId
+    }, '/chat');
   };
   
-  const handleSubmitWithOptions = (e: React.FormEvent<HTMLFormElement>, options?: { data?: Record<string, any> }) => {
+  const handleSubmitWithOptions = (e: React.FormEvent<HTMLFormElement>, options?: Parameters<typeof originalHandleSubmit>[1]) => {
     track('ChatSubmitted', { model: selectedModel, inputLength: input.length });
-    originalHandleSubmit(e, options as any); 
+    
+    // Enhanced analytics tracking
+    (window as unknown as { lastMessageTime?: number }).lastMessageTime = performance.now();
+    ChatFlowTracker.messageSent({
+      model: selectedModel,
+      message_length: input.length,
+      has_attachments: false, // Could be enhanced to detect attachments
+      context_included: messages.length > 1
+    });
+    ChatFlowTracker.aiProcessingStarted(selectedModel);
+    
+    originalHandleSubmit(e, options); 
   };
 
-  const quickActions = [
-    { icon: '🧮', label: 'Solve equation', prompt: 'Help me solve this equation: ' },
-    { icon: '🔬', label: 'Explain concept', prompt: 'Explain this scientific concept: ' },
-    { icon: '📊', label: 'Analyze data', prompt: 'Help me analyze this data: ' },
-    { icon: '💡', label: 'Give examples', prompt: 'Give me examples of: ' },
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-      {/* Enhanced Header with Tools */}
-      <motion.header 
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="sticky top-16 z-40 glass border-b border-gray-800/50"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center space-x-4">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-lg hover:bg-gray-800/50 transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </motion.button>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                <span className="text-sm text-gray-400">AI Assistant Ready</span>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <FileUploader onUpload={handleFileUploadCallback} isUploading={isUploading} disabled={isLoading} />
-              <ModelSelector selectedModel={selectedModel} onModelChange={handleModelChange} disabled={isLoading}/>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleClearChat}
-                disabled={isLoading}
-                className="p-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-all duration-200 disabled:opacity-50"
-              >
-                <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </motion.button>
-            </div>
-          </div>
-        </div>
-      </motion.header>
-
-      <div className="flex h-[calc(100vh-8rem)]">
-        {/* Sidebar */}
-        <AnimatePresence>
-          {sidebarOpen && (
-            <motion.aside
-              initial={{ x: -300, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -300, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="w-80 glass border-r border-gray-800/50 overflow-y-auto"
-            >
-              <div className="p-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-200">Chat History</h3>
-                <div className="space-y-2">
-                  <motion.div
-                    whileHover={{ x: 4 }}
-                    className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 cursor-pointer"
-                  >
-                    <p className="text-sm font-medium text-blue-300">Current Chat</p>
-                    <p className="text-xs text-gray-400 mt-1">{messages.length} messages</p>
-                  </motion.div>
-                </div>
-
-                <h3 className="text-lg font-semibold mb-4 mt-8 text-gray-200">Quick Actions</h3>
-                <div className="space-y-2">
-                  {quickActions.map((action, index) => (
-                    <motion.button
-                      key={index}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleInputChange({ target: { value: action.prompt } } as any)}
-                      className="w-full text-left p-3 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-all duration-200"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">{action.icon}</span>
-                        <span className="text-sm text-gray-300">{action.label}</span>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col">
-          <main className="flex-1 overflow-y-auto">
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              {/* Error State */}
-              <AnimatePresence>
-                {chatError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="mb-6"
-                  >
-                    <div className="glass p-4 rounded-xl border border-red-500/30 bg-red-500/5">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-red-300">Chat Error</p>
-                          <p className="text-xs text-red-200/70">{chatError.message}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Enhanced Chat Messages */}
-              <div className="space-y-6">
-                <AnimatePresence>
-                  {messages.map((message, index) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <ChatMessages messages={[message]} />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-
-              {/* Enhanced Loading State */}
-              <AnimatePresence>
-                {isLoading && messages[messages.length - 1]?.role === 'user' && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="mt-6"
-                  >
-                    <div className="glass p-6 rounded-xl border border-blue-500/20">
-                      <div className="flex items-center space-x-4">
-                        <div className="relative">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                            className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full"
-                          />
-                          <div className="absolute inset-0 w-10 h-10 bg-blue-500/10 rounded-full blur-md" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-blue-300">AI is analyzing your request...</p>
-                          <p className="text-xs text-gray-400 mt-1">Using {selectedModel}</p>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex space-x-1">
-                        {[0, 1, 2].map((i) => (
-                          <motion.div
-                            key={i}
-                            animate={{ opacity: [0.3, 1, 0.3] }}
-                            transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
-                            className="w-2 h-2 bg-blue-400 rounded-full"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </main>
-
-          {/* Enhanced Input Area */}
-          <motion.footer 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="glass border-t border-gray-800/50"
-          >
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-              <ChatInput 
-                input={input} 
-                handleInputChange={handleInputChange} 
-                handleSubmit={handleSubmitWithOptions} 
-                isLoading={isLoading} 
-                reload={reload}
-                stop={stop}
-                disabled={isUploading}
-              />
-              <div className="flex items-center justify-between mt-3">
-                <div className="flex items-center space-x-4 text-xs text-gray-400">
-                  <span className="flex items-center space-x-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span>Powered by {selectedModel}</span>
-                  </span>
-                  <span>•</span>
-                  <span>Shift + Enter for new line</span>
-                </div>
-                <span className="text-xs text-gray-400">
-                  AI can make mistakes. Verify important information.
-                </span>
-              </div>
-            </div>
-          </motion.footer>
-        </div>
-      </div>
-    </div>
+    <ChatGPTLayout currentConversationId={chatId}>
+      <ChatMainArea>
+                    <Suspense fallback={<LoadingSkeleton className="h-full" />}>
+              <LazyChatMessages messages={messages} />
+            </Suspense>
+        <ChatInput
+          input={input}
+          handleInputChange={handleInputChange}
+          handleSubmit={handleSubmitWithOptions}
+          isLoading={isLoading}
+          stop={stop}
+          onFileUpload={handleFileUploadCallback}
+          disabled={isLoading || isUploading}
+        />
+      </ChatMainArea>
+    </ChatGPTLayout>
   );
 } 

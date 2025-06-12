@@ -1,0 +1,23 @@
+# Requirements for Knowledge Base Population Script
+# Install with: pip install -r scripts/requirements-knowledge-base.txt
+
+# Core async database and HTTP libraries
+asyncpg>=0.29.0
+aiohttp>=3.9.0
+
+# OpenAI API for embeddings
+openai>=1.10.0
+
+# Data processing and utilities
+pyyaml>=6.0.1
+requests>=2.31.0
+
+# Optional: For extended functionality
+beautifulsoup4>=4.12.0  # For web scraping if needed
+lxml>=4.9.0             # XML parsing for arXiv/PubMed
+xmltodict>=0.13.0       # XML to dict conversion
+python-dotenv>=1.0.0    # Environment variable management
+
+# Development and testing (optional)
+pytest>=7.4.0           # For testing the scripts
+pytest-asyncio>=0.21.0  # Async testing support 

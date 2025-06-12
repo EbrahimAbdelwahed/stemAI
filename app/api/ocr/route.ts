@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeOCR } from '../../../lib/ai/tools/ocrTool';
+import { trackAPIPerformance } from '../../../lib/analytics/api-performance-middleware';
 
-export async function POST(req: NextRequest) {
+async function ocrHandler(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File;
@@ -75,4 +76,7 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
+
+// Export the wrapped handler with performance tracking
+export const POST = trackAPIPerformance(ocrHandler); 
