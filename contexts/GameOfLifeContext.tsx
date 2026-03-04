@@ -148,16 +148,23 @@ export function GameOfLifeProvider({ children }: { children: React.ReactNode }) 
   const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateRef = useRef<number>(0);
   
-  // Initialize state from storage or defaults
-  const [state, setState] = useState<GameOfLifeState>(() => {
-    const stored = loadStateFromStorage();
-    return stored || {
-      cells: initializePatterns(),
-      generation: 0,
-      isRunning: true,
-      viewport: { x: 0, y: 0, zoom: 8 }
-    };
+  // Initialize with defaults matching server render (avoids hydration mismatch).
+  // localStorage is loaded after hydration in a useEffect below.
+  const [state, setState] = useState<GameOfLifeState>({
+    cells: initializePatterns(),
+    generation: 0,
+    isRunning: true,
+    viewport: { x: 0, y: 0, zoom: 8 }
   });
+
+  // Hydrate from localStorage after mount (client-only, after SSR hydration)
+  useEffect(() => {
+    const stored = loadStateFromStorage();
+    if (stored) {
+      setState(stored);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Game loop that runs continuously
   const startGameLoop = useCallback(() => {
