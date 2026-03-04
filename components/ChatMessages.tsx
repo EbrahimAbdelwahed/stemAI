@@ -158,7 +158,7 @@ export default function ChatMessages({ messages, isLoading = false }: ChatMessag
               <div className="flex justify-end mb-6">
                 <div className="max-w-2xl">
                   <div className="bg-[#2f2f2f] rounded-2xl px-4 py-3 border border-[#4d4d4d]">
-                    <p className="text-white leading-relaxed">{message.content}</p>
+                    <p className="text-black leading-relaxed">{message.content}</p>
                   </div>
                 </div>
               </div>
