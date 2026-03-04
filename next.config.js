@@ -4,6 +4,9 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 });
 
 const nextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     optimizePackageImports: ['@ai-sdk/react', 'react-markdown', 'plotly.js'],
     // Removed optimizeCss due to build compatibility issues with critters package

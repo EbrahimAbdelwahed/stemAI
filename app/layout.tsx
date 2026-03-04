@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'STEM AI Assistant',
-  description: 'AI assistant for STEM topics with RAG capabilities',
+  description: 'AI-powered learning platform for STEM topics with molecular visualization, physics simulations, and more.',
 };
 
 export default function RootLayout({

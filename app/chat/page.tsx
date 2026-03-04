@@ -23,14 +23,27 @@ import { LoadingSkeleton } from '@/lib/lazy-loading';
 // Lazy load heavy components
 const LazyChatMessages = lazy(() => import('../../components/ChatMessages'));
 
-// Message type from Vercel AI SDK is used directly.
-// The SDK's Message type should include toolInvocations for Vercel AI SDK v3+.
 type Message = VercelMessage;
 
 type ModelType = 'deepseek-chat' | 'gemini-2.5-flash' | 'deepseek-reasoner';
 
-const LOCAL_STORAGE_CHAT_ID_KEY = 'stem-ai-chat-id';
-const LOCAL_STORAGE_MESSAGES_KEY_PREFIX = 'stem-ai-chat-messages-';
+const STORAGE_PREFIX = 'stem-ai-';
+const SESSIONS_KEY = `${STORAGE_PREFIX}sessions`;
+const ACTIVE_SESSION_KEY = `${STORAGE_PREFIX}active-session`;
+const MESSAGES_PREFIX = `${STORAGE_PREFIX}messages-`;
+
+function loadSessions(): ChatSession[] {
+  try {
+    const raw = localStorage.getItem(SESSIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessions(sessions: ChatSession[]) {
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+}
 
 export default function ChatPage() {
   const { currentConversation: chatId, selectedModel } = useChatState();
@@ -97,17 +110,17 @@ export default function ChatPage() {
     model: selectedModel,
   }), [selectedModel]);
 
-  const { 
-    messages, 
-    input, 
-    handleInputChange, 
-    handleSubmit: originalHandleSubmit, 
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit: originalHandleSubmit,
     isLoading,
-    reload,
     stop,
-    error: chatError, 
-    setMessages, 
-    append 
+    error: chatError,
+    setMessages,
+    append,
+    setInput,
   } = useChat({
     api: '/api/chat',
     body: chatBody,
@@ -116,6 +129,7 @@ export default function ChatPage() {
     onError: onErrorHandler,
   });
 
+  // Initialize: load sessions and active chat
   useEffect(() => {
     // Check URL parameters first for new chat ID
     const urlParams = new URLSearchParams(window.location.search);
@@ -153,8 +167,8 @@ export default function ChatPage() {
       if (storedMessages && !urlChatId) {
         // Only restore messages if not a new chat from URL
         try {
-          const parsedMessages: Message[] = JSON.parse(storedMessages);
-          const validMessages = parsedMessages.map(msg => ({
+          const parsed: Message[] = JSON.parse(storedMessages);
+          const valid = parsed.map((msg) => ({
             ...msg,
             // Ensure `parts` is always an array, even if empty, for consistent rendering logic.
             // And provide a default text part if only content string exists, for older SDK versions.
@@ -204,6 +218,7 @@ export default function ChatPage() {
     realDataCollector.storePageView('/chat', document.referrer, navigator.userAgent);
   }, [setCurrentConversation, selectedModel, realDataCollector, sessionStartTime, setMessages]);
 
+  // Save messages to localStorage
   useEffect(() => {
     if (chatId && messages.length > 0) {
       try {
@@ -215,6 +230,8 @@ export default function ChatPage() {
         console.error("Failed to save messages to localStorage", e);
         toast.error("Could not save chat history. Storage might be full.");
       }
+    } catch {
+      toast.error('Could not save chat history.');
     }
   }, [chatId, messages, setMessagesInStore]);
 
@@ -285,20 +302,41 @@ export default function ChatPage() {
             body: formData,
           });
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `Failed to process file: ${response.statusText}`);
-          }
+  const handleDeleteSession = useCallback(
+    (id: string) => {
+      localStorage.removeItem(`${MESSAGES_PREFIX}${id}`);
+      setSessions((prev) => {
+        const updated = prev.filter((s) => s.id !== id);
+        saveSessions(updated);
+        return updated;
+      });
+      if (id === chatId) {
+        handleNewChat();
+      }
+    },
+    [chatId, handleNewChat]
+  );
 
-          const result = await response.json();
+  const handleFileUpload = useCallback(
+    (files: File[]) => {
+      if (!files?.length) return;
+      setIsUploading(true);
 
-          if (isImage) {
-            // Handle OCR result
-            const ocrMessage = `📸 **OCR Results from "${file.name}":**
+      const processFiles = async () => {
+        for (const file of files) {
+          const isImage = file.type.startsWith('image/');
+          const endpoint = isImage ? '/api/ocr' : '/api/documents';
 
-${result.extractedText}${result.hasFormulas ? '\n\n*✨ Mathematical formulas detected and formatted in LaTeX*' : ''}
+          try {
+            toast.info(`Processing ${file.name}...`);
+            const formData = new FormData();
+            formData.append('file', file);
 
-${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.originalSize} → ${result.optimizedSize}*` : ''}`;
+            const response = await fetch(endpoint, { method: 'POST', body: formData });
+            if (!response.ok) {
+              const err = await response.json();
+              throw new Error(err.error || `Failed to process: ${response.statusText}`);
+            }
 
             append({
               id: uuidv4(),
@@ -366,8 +404,7 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
             success: false
           }, '/chat');
         }
-      }
-    };
+      };
 
     processFiles().finally(() => {
       setIsUploading(false);
