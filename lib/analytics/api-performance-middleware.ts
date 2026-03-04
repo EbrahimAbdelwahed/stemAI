@@ -30,15 +30,11 @@ export function withAPIPerformanceTracking<T = any>(
     let errorMessage: string | undefined;
 
     try {
-      // Track request size if enabled
+      // Track request size from Content-Length header to avoid consuming the body stream
       if (enablePayloadSizeTracking) {
-        try {
-          const clonedRequest = req.clone();
-          const requestBody = await clonedRequest.text();
-          requestSize = new Blob([requestBody]).size;
-        } catch (e) {
-          // Ignore payload size tracking errors
-          console.warn('Could not measure request payload size:', e);
+        const contentLength = req.headers.get('content-length');
+        if (contentLength) {
+          requestSize = parseInt(contentLength, 10) || 0;
         }
       }
 
@@ -48,8 +44,15 @@ export function withAPIPerformanceTracking<T = any>(
       statusCode = response.status;
       success = statusCode >= 200 && statusCode < 400;
 
-      // Track response size if enabled
-      if (enablePayloadSizeTracking) {
+      // Track response size only for non-streaming responses
+      // Cloning a streaming response tees the ReadableStream, which delays delivery
+      // and can corrupt the stream when the AI data protocol is involved.
+      const isStreaming =
+        response.headers.get('x-vercel-ai-data-stream') != null ||
+        response.headers.get('content-type')?.includes('text/event-stream') ||
+        response.headers.get('transfer-encoding')?.includes('chunked');
+
+      if (enablePayloadSizeTracking && !isStreaming) {
         try {
           const responseText = await response.clone().text();
           responseSize = new Blob([responseText]).size;
