@@ -298,6 +298,10 @@ async function documentsHandler(req: NextRequest) {
   }
 }
 
-// Export the wrapped handlers with performance tracking
-export const GET = trackAPIPerformance(getDocumentsHandler);
-export const POST = trackAPIPerformance(documentsHandler); 
+// Named function exports — required for Next.js 15.3+ static analysis
+export async function GET(req: NextRequest) {
+  return trackAPIPerformance(getDocumentsHandler)(req);
+}
+export async function POST(req: NextRequest) {
+  return trackAPIPerformance(documentsHandler)(req);
+}

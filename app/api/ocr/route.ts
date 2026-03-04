@@ -78,5 +78,7 @@ async function ocrHandler(req: NextRequest) {
   }
 }
 
-// Export the wrapped handler with performance tracking
-export const POST = trackAPIPerformance(ocrHandler); 
+// Named function export — required for Next.js 15.3+ static analysis
+export async function POST(req: NextRequest) {
+  return trackAPIPerformance(ocrHandler)(req);
+}

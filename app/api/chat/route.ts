@@ -586,5 +586,9 @@ async function chatHandler(req: NextRequest): Promise<Response> {
   }
 }
 
-// Export the wrapped handler with performance tracking
-export const POST = trackAPIPerformanceDetailed(chatHandler); 
+// Named async function export — Next.js 15.3+ requires static-analyzable exports.
+// Using `export const POST = HOF(fn)` can silently fail static analysis and
+// cause Next.js to return 405 Method Not Allowed for valid POST requests.
+export async function POST(req: NextRequest) {
+  return trackAPIPerformanceDetailed(chatHandler)(req);
+}
