@@ -16,9 +16,6 @@ export const plotFunctionTool = {
   description: 'Generates parameters for plotting mathematical functions. Use this tool when a user asks to visualize a mathematical expression or dataset.',
   parameters: plotFunctionToolSchema,
   execute: async (params: z.infer<typeof plotFunctionToolSchema>) => {
-    // TODO: Implement actual logic if needed for pre-computation or validation beyond Zod.
-    // For now, it directly returns the validated parameters, assuming the LLM provides usable data.
-    console.log('plotFunctionTool executed with:', params);
     return {
       vizType: 'plotly',
       params: params, // The validated and structured parameters for PlotlyPlotter.tsx

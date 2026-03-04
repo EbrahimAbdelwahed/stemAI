@@ -6,6 +6,8 @@ interface DocumentChunk {
   content: string;
   document_id: number;
   title: string;
+  userId: string | null;
+  isPublic: boolean;
   similarity: number;
 }
 

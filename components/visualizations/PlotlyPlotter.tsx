@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import * as math from 'mathjs'; // Assuming math.js is installed
+import type { Data, Layout } from 'plotly.js';
 
 interface PlotVariable {
   name: string;
@@ -23,8 +24,8 @@ interface PlotlyPlotterProps {
 }
 
 const PlotlyPlotter: React.FC<PlotlyPlotterProps> = ({ params, description }) => {
-  const [plotData, setPlotData] = useState<any[]>([]);
-  const [plotLayout, setPlotLayout] = useState<Record<string, any>>({});
+  const [plotData, setPlotData] = useState<Data[]>([]);
+  const [plotLayout, setPlotLayout] = useState<Partial<Layout>>({});
   const [error, setError] = useState<string | null>(null);
 
   const processedParams = useMemo(() => {
@@ -48,8 +49,8 @@ const PlotlyPlotter: React.FC<PlotlyPlotterProps> = ({ params, description }) =>
       const node = math.parse(processedParams.functionString);
       const code = node.compile();
 
-      const newPlotData: any[] = [];
-      const newPlotLayout: Record<string, any> = {
+      const newPlotData: Data[] = [];
+      const newPlotLayout: Partial<Layout> = {
         title: processedParams.title || processedParams.functionString,
         margin: { t: 50, b: 50, l: 50, r: 50 }, 
         paper_bgcolor: 'rgba(0,0,0,0)', 

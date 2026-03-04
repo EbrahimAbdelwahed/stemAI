@@ -1,6 +1,6 @@
 # STEM AI Assistant Documentation
 
-Welcome to the STEM AI Assistant documentation! This comprehensive guide will help you understand, set up, and use the STEM AI Assistant application.
+Welcome to the STEM AI Assistant documentation. This guide covers setup, architecture, and usage.
 
 ## Table of Contents
 
@@ -13,19 +13,23 @@ Welcome to the STEM AI Assistant documentation! This comprehensive guide will he
 7. [Deployment](./deployment.md)
 8. [Contributing](./contributing.md)
 
-## Quick Start
+## Additional Guides
 
-For a quick start guide, please refer to the [Getting Started](./getting-started.md) section.
+- [OCR Integration](./OCR.md)
+- [Knowledge Base Setup](./knowledge-base-population-guide.md)
+- [Quick Start: RAG MVP](./quick-start-rag-mvp.md)
+- [Quick Start: Knowledge Base](./quick-start-knowledge-base.md)
+- [Text Rendering](./text_rendering.md)
+- [Visualization Tools](./tool_viz.md)
+- [Physics Simulations](./phys_tool.md)
+- [UI Generation](./ui-generation.md)
+- [Production Deployment](./production-deployment-guide.md)
 
 ## Features
 
-- **Multi-model AI Chat**: Choose between different AI models (Grok-3-mini, Gemini 2.0 Flash) for different capabilities
-- **Retrieval-Augmented Generation (RAG)**: Upload documents that the AI can reference when answering questions
-- **Document Search**: Semantic search using embeddings to find relevant information
-- **Modern UI**: Clean, responsive interface with dark mode support
-- **Real-time Streaming**: Messages stream in real-time for a natural conversation feel
-- **Tool Execution**: Support for AI-powered tool execution and multi-step reasoning
-
-## Contact
-
-For questions or support, please open an issue in the GitHub repository. 
+- **Multi-model AI Chat**: DeepSeek V3.2, Gemini 2.5 Flash, and DeepSeek Reasoner for advanced math
+- **Retrieval-Augmented Generation (RAG)**: Upload documents the AI can reference
+- **Interactive Visualizations**: 3D molecules, math plots, physics simulations, and charts
+- **OCR**: Extract text and formulas from images
+- **Real-time Streaming**: Messages stream with tool invocations
+- **Authentication**: GitHub and Google OAuth with persistent chat history

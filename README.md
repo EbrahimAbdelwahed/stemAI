@@ -1,107 +1,102 @@
 # STEM AI Assistant
 
-A STEM learning assistant with RAG capabilities powered by multiple AI models using Vercel's AI SDK.
+An intelligent STEM learning platform with multi-model AI chat, interactive visualizations, and document-powered knowledge retrieval (RAG).
+
+**[Live Demo](https://stem-ai.vercel.app)**
 
 ## Features
 
-- Chat with multiple AI models (Grok-3-Mini Beta, Gemini 2.0 Flash)
-- Upload documents to enhance the AI's knowledge (RAG)
-- Semantic search to find relevant information
-- Model selection to switch between different AI models
+- **Multi-Model AI Chat** — Switch between DeepSeek V3.2, Gemini 2.5 Flash, and DeepSeek Reasoner (optimized for math/science)
+- **RAG (Retrieval-Augmented Generation)** — Upload PDFs, TXT, and DOC files to build a knowledge base the AI references in real time
+- **3D Molecular Visualization** — Render molecules from SMILES strings or PDB IDs using 3Dmol.js
+- **Math Plotting** — 2D and 3D function plotting with Plotly.js and math.js
+- **Physics Simulations** — Interactive demos (collisions, pendulums, projectile motion) powered by Matter.js
+- **OCR** — Extract text and LaTeX formulas from uploaded images
+- **LaTeX Rendering** — Full KaTeX support for inline and block math expressions
+- **Authentication** — GitHub and Google OAuth with persistent chat history
+- **Analytics** — Vercel Analytics and custom event tracking
 
 ## Tech Stack
 
-- Next.js
-- Vercel AI SDK
-- Tailwind CSS
-- PostgreSQL with pgvector for vector storage
-- Drizzle ORM
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 15, React 18, TypeScript |
+| AI | Vercel AI SDK 4, DeepSeek, Google Gemini (via OpenRouter) |
+| Database | PostgreSQL + pgvector (Neon), Drizzle ORM |
+| Auth | NextAuth.js v5 (GitHub, Google OAuth) |
+| Styling | Tailwind CSS, Lucide Icons |
+| Visualizations | Plotly.js, 3Dmol.js, Matter.js, KaTeX |
+| Deployment | Vercel (Edge Runtime, Streaming) |
 
-## Prerequisites
+## Architecture
 
-- Node.js 18+ 
-- PostgreSQL database with pgvector extension
-- API keys for the models you want to use
+```
+app/
+├── api/
+│   ├── chat/          # Streaming AI chat with tool calling
+│   ├── documents/     # Document upload & RAG pipeline
+│   └── ocr/           # Image text extraction
+├── chat/              # Main chat interface
+└── page.tsx           # Landing page
 
-## Setup
+lib/
+├── ai/                # Model configs, embeddings, tools
+├── db/                # Drizzle schema, queries
+├── store/             # Zustand state management
+└── analytics/         # Event tracking
 
-1. Clone the repository:
-
-```bash
-git clone <repository-url>
-cd stemai
+components/
+├── visualizations/    # 3Dmol, Plotly, Matter.js renderers
+├── chat/              # Chat layout, tool result rendering
+└── ui/                # Shared UI primitives
 ```
 
-2. Install dependencies:
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL with pgvector extension (e.g., [Neon](https://neon.tech))
+
+### Setup
 
 ```bash
+git clone https://github.com/EbrahimAbdelwahed/stemAI.git
+cd stemAI
 npm install
 ```
 
-3. Set up your environment variables by creating a `.env.local` file:
+Create a `.env.local` file:
 
+```env
+# Required
+DATABASE_URL=postgres://user:pass@host:5432/db
+
+# AI Providers (at least one required)
+DEEPSEEK_API_KEY=your_key
+OPENROUTER_API_KEY=your_key
+
+# Embeddings (required for RAG)
+OPENAI_API_KEY=your_key
+
+# Auth (optional)
+AUTH_GITHUB_ID=...
+AUTH_GITHUB_SECRET=...
+AUTH_GOOGLE_ID=...
+AUTH_GOOGLE_SECRET=...
+AUTH_SECRET=...
+
+# Features
+RAG_ENABLED=true
 ```
-# OpenAI API Key (required for fallback)
-OPENAI_API_KEY=your_openai_api_key
-
-# Google API Key (required for Gemini models)
-GOOGLE_API_KEY=your_google_api_key
-
-# xAI API Key (required for Grok models)
-XAI_API_KEY=your_xai_api_key
-
-# Anthropic API Key (optional)
-ANTHROPIC_API_KEY=your_anthropic_api_key
-
-# Database URL (required)
-DATABASE_URL=postgres://username:password@hostname:port/database
-```
-
-4. Set up your database:
-
-You need a PostgreSQL database with the pgvector extension installed. You can use services like Neon.tech, which provides this setup.
-
-5. Run database migrations (once the migration scripts are created):
 
 ```bash
 npm run db:migrate
-```
-
-## Development
-
-Start the development server:
-
-```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Usage
+## License
 
-1. Visit the homepage and click "Start Chatting"
-2. Use the model selector to choose your preferred AI model
-3. Upload documents using the file uploader to enhance the AI's knowledge
-4. Ask questions related to the uploaded documents or general STEM topics
-
-## API Keys
-
-### Getting a Google API Key
-To use the Gemini models, you'll need a Google API key:
-1. Visit Google AI Studio at https://aistudio.google.com/
-2. Create a project and generate an API key
-3. Add the API key to your `.env.local` file as `GOOGLE_API_KEY`
-
-### Getting an xAI API Key
-To use the Grok models, you'll need an xAI API key:
-1. Visit the xAI Platform at https://platform.xai.com/
-2. Create an account and generate an API key
-3. Add the API key to your `.env.local` file as `XAI_API_KEY`
-
-## Future Improvements
-
-- Add authentication
-- Support for more file types (PDF parsing, etc.)
-- Additional AI models
-- Enhanced RAG techniques
-- User management and personalized knowledge bases 
+ISC

@@ -226,9 +226,32 @@ async function executeOCR(params: z.infer<typeof ocrToolSchema>): Promise<OCRRes
 
 // Export the OCR tool following the established pattern
 export const ocrTool = tool({
-  description: 'Extract text and mathematical formulas from images using GPT-4o vision capabilities. Use this when users upload images containing text, handwritten notes, equations, documents, or screenshots that need text extraction.',
+  description: 'Extract text and mathematical formulas from IMAGE FILES ONLY (JPG, PNG, GIF, BMP, WEBP, etc.). This tool is EXCLUSIVELY for processing screenshots, photos, scanned images, or any visual content that contains text or mathematical formulas. DO NOT use this tool for: PDF documents, Word documents, text files, or any non-image files - their text content is already extracted during upload and available in the conversation context. Only use when the user specifically uploads an image file or asks for OCR/text extraction from a visual image.',
   parameters: ocrToolSchema,
-  execute: executeOCR,
+  execute: async (params) => {
+    // Validate that this is actually an image MIME type
+    if (!params.mimeType.startsWith('image/')) {
+      return {
+        error: true,
+        errorMessage: `OCR tool can only process image files. Received: ${params.mimeType}. For document files, the text is already extracted and available in the conversation context.`,
+        confidence: 0,
+        processingTime: 0
+      };
+    }
+    
+    // Validate supported image formats
+    const supportedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+    if (!supportedFormats.includes(params.mimeType.toLowerCase())) {
+      return {
+        error: true,
+        errorMessage: `Unsupported image format: ${params.mimeType}. Supported formats: ${supportedFormats.join(', ')}`,
+        confidence: 0,
+        processingTime: 0
+      };
+    }
+    
+    return executeOCR(params);
+  },
 });
 
 // Export the execute function for direct API use

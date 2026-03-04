@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-type ModelType = 'grok-3-mini' | 'gemini-2-flash' | 'gpt-4o' | 'claude-3-haiku';
+type ModelType = 'deepseek-chat' | 'gemini-2.5-flash' | 'deepseek-reasoner';
 
 interface ModelSelectorProps {
   selectedModel: ModelType;
@@ -9,25 +9,12 @@ interface ModelSelectorProps {
 }
 
 const models = [
-  { 
-    id: 'grok-3-mini', 
-    name: 'Grok-3-Mini', 
-    description: 'Fast and compact model by xAI',
-    tag: 'BETA',
+  {
+    id: 'deepseek-chat',
+    name: 'DeepSeek V3.2',
+    description: 'Fast general-purpose model with tool support',
+    tag: 'Default',
     performance: 'Fast',
-    icon: (
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-purple-400">
-        <path d="M12 16.01L16 12L12 7.99L8 12L12 16.01Z" fill="currentColor" />
-        <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    )
-  },
-  { 
-    id: 'gemini-2-flash', 
-    name: 'Gemini 2.0', 
-    description: 'Advanced Google AI model',
-    tag: 'Flash',
-    performance: 'Balanced',
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-400">
         <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -36,30 +23,29 @@ const models = [
       </svg>
     )
   },
-  { 
-    id: 'gpt-4o', 
-    name: 'GPT-4o', 
-    description: 'OpenAI\'s advanced multimodal model',
-    tag: 'Optimized',
-    performance: 'Balanced',
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    description: 'Google\'s best price-performance model',
+    tag: 'Flash',
+    performance: 'Fast',
     icon: (
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-green-400">
-        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-cyan-400">
+        <path d="M12 16.01L16 12L12 7.99L8 12L12 16.01Z" fill="currentColor" />
+        <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     )
   },
-  { 
-    id: 'claude-3-haiku', 
-    name: 'Claude 3 Haiku', 
-    description: 'Anthropic\'s fast and capable model',
-    tag: 'Fast',
-    performance: 'Fast',
+  {
+    id: 'deepseek-reasoner',
+    name: 'DeepSeek Reasoner',
+    description: 'Advanced reasoning for math & science',
+    tag: 'Math',
+    performance: 'Balanced',
     icon: (
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-orange-400">
-        <path d="M12 16.01L16 12L12 7.99L8 12L12 16.01Z" fill="currentColor" />
-        <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-purple-400">
+        <path d="M9.5 2A7.5 7.5 0 0 0 4 10c0 6 3.5 10 3.5 10s3.5-4 3.5-10a7.5 7.5 0 0 0-5.5-8Z" stroke="currentColor" strokeWidth="2"/>
+        <path d="M15.5 3A6.5 6.5 0 0 1 20 9c0 5-3 8.5-3 8.5s-3-3.5-3-8.5a6.5 6.5 0 0 1 3.5-6Z" stroke="currentColor" strokeWidth="2"/>
       </svg>
     )
   },
@@ -101,8 +87,8 @@ export default function ModelSelector({ selectedModel, onModelChange, disabled =
                   setIsOpen(false);
                 }}
                 className={`w-full text-left px-4 py-2 text-sm ${
-                  model.id === selectedModel 
-                    ? 'bg-gray-700 text-white' 
+                  model.id === selectedModel
+                    ? 'bg-gray-700 text-white'
                     : 'text-gray-200 hover:bg-gray-700'
                 }`}
                 role="menuitem"
@@ -123,8 +109,8 @@ export default function ModelSelector({ selectedModel, onModelChange, disabled =
                   <div className="flex items-center">
                     <span className={`
                       mr-1.5 px-1.5 py-0.5 rounded-full text-xs font-medium
-                      ${model.performance === 'Fast' 
-                        ? 'bg-green-900/20 text-green-300' 
+                      ${model.performance === 'Fast'
+                        ? 'bg-green-900/20 text-green-300'
                         : 'bg-yellow-900/20 text-yellow-300'}
                     `}>
                       {model.performance}
@@ -143,4 +129,4 @@ export default function ModelSelector({ selectedModel, onModelChange, disabled =
       )}
     </div>
   );
-} 
+}

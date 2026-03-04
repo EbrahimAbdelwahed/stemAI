@@ -1,158 +1,136 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useChat, Message } from '@ai-sdk/react';
-import SplitPane from '../../components/SplitPane';
-import NavBar from '../../components/NavBar';
-import EnhancedChatInput from '../../components/EnhancedChatInput';
-import ConversationView from '../../components/ConversationView';
-import CodePreview from '../../components/CodePreview';
-
-type ModelType = 'grok-3-mini' | 'gemini-2-flash';
+import { useState, useRef, useEffect } from 'react';
+import { useChat } from '@ai-sdk/react';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Button } from '@/components/ui/button';
+import { Typography } from '@/components/ui/Typography';
+import { Card } from '@/components/ui/Card';
 
 export default function GeneratePage() {
-  const [selectedModel, setSelectedModel] = useState<ModelType>('grok-3-mini');
-  const [generatedCode, setGeneratedCode] = useState<string>('');
-  const [generatedJSX, setGeneratedJSX] = useState<string>('');
-  const [componentName, setComponentName] = useState<string>('');
-  const [componentsGenerated, setComponentsGenerated] = useState<{
-    name: string;
-    code: string;
-    jsx?: string;
-    timestamp: string;
-  }[]>([]);
-  
-  // Use the chat hook
-  const { 
-    messages, 
-    input, 
-    handleInputChange, 
-    handleSubmit, 
-    isLoading, 
-    reload, 
-    stop, 
-    error, 
-    setMessages,
-    append
-  } = useChat({
+  const [code, setCode] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
-    body: {
-      model: selectedModel,
-      mode: 'generate'
-    },
-    id: 'stem-ai-generate',
-    initialMessages: [
-      {
-        id: 'welcome',
-        role: 'assistant',
-        content: 'Describe a UI component you want me to create with React and Tailwind CSS.'
-      }
-    ],
+    body: { model: 'deepseek-chat', mode: 'generate' },
     onFinish: (message) => {
-      // Look for tool invocations
-      const toolCall = message.toolInvocations?.find(tool => 
-        tool.toolName === 'generateReactComponent' && tool.state === 'result'
+      // Extract code from the generateReactComponent tool result
+      const toolCall = message.toolInvocations?.find(
+        (t) => t.toolName === 'generateReactComponent' && 'result' in t
       );
-      
-      if (toolCall?.state === 'result') {
-        const result = toolCall.result as any;
-        setGeneratedCode(result.jsx || '');
-        setGeneratedJSX(result.jsx || '');
-        setComponentName(result.componentName || 'Component');
-        
-        // Add to generated components
-        setComponentsGenerated(prev => [
-          {
-            name: result.componentName || 'Component',
-            code: result.jsx || '',
-            jsx: result.jsx,
-            timestamp: result.timestamp || new Date().toISOString()
-          },
-          ...prev
-        ]);
+      if (toolCall && 'result' in toolCall) {
+        const result = toolCall.result as { code?: string };
+        if (result?.code) setCode(result.code);
+      } else {
+        // Fallback: extract fenced code block from message content
+        const match = message.content.match(/```(?:tsx?|jsx?)\n([\s\S]*?)```/);
+        if (match) setCode(match[1]);
       }
-    }
+    },
   });
 
-  const handleModelChange = (model: ModelType) => {
-    setSelectedModel(model);
-    
-    // Add a system message announcing the model change
-    append({
-      id: Date.now().toString(),
-      role: 'assistant',
-      content: `Switching to ${model === 'grok-3-mini' ? 'Grok-3-Mini' : 'Gemini 2.0 Flash'} model. Describe a component you want me to create.`
-    });
-  };
-
-  const handleNewChat = () => {
-    if (messages.length > 1) {
-      if (window.confirm('Start a new design session? This will clear the current conversation.')) {
-        setMessages([{
-          id: 'welcome',
-          role: 'assistant',
-          content: 'Describe a UI component you want me to create with React and Tailwind CSS.'
-        }]);
-        setGeneratedCode('');
-        setGeneratedJSX('');
-        setComponentName('');
-      }
-    }
-  };
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      <NavBar 
-        selectedModel={selectedModel} 
-        onModelChange={handleModelChange}
-        onNewChat={handleNewChat}
-      />
-      
-      <SplitPane
-        left={
-          <div className="flex flex-col h-full">
-            <div className="overflow-hidden flex-1">
-              <ConversationView 
-                messages={messages} 
-                isLoading={isLoading} 
-              />
-            </div>
-            <EnhancedChatInput
-              input={input}
-              handleInputChange={handleInputChange}
-              handleSubmit={handleSubmit}
-              isLoading={isLoading}
-              placeholder="Describe a UI component or pattern..."
-              stop={stop}
-            />
+    <AppLayout showSidebar={false}>
+      <div className="flex h-screen flex-col md:flex-row bg-neutral-950">
+        {/* Chat panel */}
+        <div className="flex flex-col w-full md:w-1/2 border-r border-neutral-800">
+          <div className="px-4 py-3 border-b border-neutral-800 flex items-center gap-2">
+            <Typography variant="h3" className="text-white text-base font-semibold">
+              React Component Generator
+            </Typography>
           </div>
-        }
-        right={
-          <CodePreview
-            code={generatedCode}
-            jsx={generatedJSX}
-          />
-        }
-      />
-      
-      {error && (
-        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-red-600 text-white rounded-lg">
-          <div className="flex items-start">
-            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <p className="font-medium">Error: {error.message}</p>
-              <button 
-                onClick={() => reload()}
-                className="text-sm mt-1 underline"
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-2">
+                <svg className="w-10 h-10 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <p className="text-sm">Describe a React component to generate</p>
+                <p className="text-xs text-neutral-600">e.g. &quot;A dark-mode toggle button with animation&quot;</p>
+              </div>
+            )}
+            {messages.map((m) => (
+              <div
+                key={m.id}
+                className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                Try again
-              </button>
-            </div>
+                <div
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                    m.role === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-neutral-800 text-neutral-100'
+                  }`}
+                >
+                  {m.content || (m.role === 'assistant' && isLoading ? '...' : '')}
+                </div>
+              </div>
+            ))}
+            {isLoading && messages[messages.length - 1]?.role === 'user' && (
+              <div className="flex justify-start">
+                <div className="bg-neutral-800 text-neutral-400 rounded-lg px-3 py-2 text-sm">
+                  Generating...
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input */}
+          <form onSubmit={handleSubmit} className="p-3 border-t border-neutral-800 flex gap-2">
+            <input
+              value={input}
+              onChange={handleInputChange}
+              placeholder="Describe a component..."
+              disabled={isLoading}
+              className="flex-1 bg-neutral-800 text-white rounded-lg px-3 py-2 text-sm outline-none placeholder-neutral-500 disabled:opacity-50"
+            />
+            <Button type="submit" disabled={isLoading || !input.trim()} size="sm">
+              {isLoading ? 'Wait...' : 'Generate'}
+            </Button>
+          </form>
+        </div>
+
+        {/* Code preview panel */}
+        <div className="flex flex-col w-full md:w-1/2">
+          <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
+            <Typography variant="h3" className="text-white text-base font-semibold">
+              Generated Code
+            </Typography>
+            {code && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigator.clipboard.writeText(code)}
+              >
+                Copy
+              </Button>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {code ? (
+              <pre className="text-sm font-mono text-neutral-200 bg-neutral-900 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap">
+                <code>{code}</code>
+              </pre>
+            ) : (
+              <Card className="h-full flex items-center justify-center border-neutral-800 bg-neutral-900">
+                <div className="text-center text-neutral-500 space-y-2">
+                  <svg className="w-12 h-12 mx-auto opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
+                  <p className="text-sm">Generated component code will appear here</p>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </AppLayout>
   );
-} 
+}

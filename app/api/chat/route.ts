@@ -1,18 +1,25 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { google } from '@ai-sdk/google';
-import { openai } from '@ai-sdk/openai';
-import { xai } from '@ai-sdk/xai';
 import { streamText, CoreMessage } from 'ai';
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { searchDocumentsOptimized, detectSimpleQuery } from '../../../lib/ai/optimized-documents';
 import { visualizationTools } from './visualization_tools';
+import { trackAPIPerformanceDetailed } from '../../../lib/analytics/api-performance-middleware';
+import { auth } from '@/auth';
+import { 
+  createConversation, 
+  saveMessage, 
+  generateConversationTitle,
+  getConversationById,
+  saveToolInvocation
+} from '@/lib/db/conversations';
+import { saveToLocalStorage } from '@/lib/chat/migration';
+import { getModelConfig as getLazyModelConfig } from '@/lib/ai/lazy-models';
 
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
 
 // getModelConfig will now be the primary way to get a configured model instance
-function getModelConfig(modelId: string, mode: string = 'chat') {
+async function getModelConfigLocal(modelId: string, mode: string = 'chat') {
   let baseSystem = '';
 
   if (mode === 'generate') {
@@ -64,6 +71,34 @@ Where $f'(g(x))$ is the derivative of the outer function and $g'(x)$ is the deri
 - Break complex derivations into clear steps
 
 **REMINDER**: Every single mathematical expression, variable, or formula MUST be wrapped in dollar signs!
+
+## DOCUMENT CONTENT vs OCR TOOL USAGE - CRITICAL DISTINCTION
+
+### **UPLOADED DOCUMENT CONTENT (PDFs, TXT, DOC files)**
+- When users upload PDF, TXT, DOC, or DOCX files, the text content is **automatically extracted and processed**
+- This extracted text is **already available to you** through the RAG context system
+- **DO NOT use the OCR tool for uploaded documents** - the content is already accessible
+- If a user asks about content from an uploaded document, refer to the RAG context that's provided
+- The document content appears in your system context as "Related context from uploaded documents:"
+
+### **OCR TOOL - FOR IMAGES ONLY**
+- Use the 'performOCR' tool **ONLY** for extracting text from **images**:
+  * Screenshots of documents, websites, or applications
+  * Photos of handwritten notes, whiteboards, or printed text
+  * Scanned images in formats like JPG, PNG, GIF, BMP, WEBP
+  * Images containing mathematical formulas, equations, or diagrams
+- **NEVER use OCR for uploaded PDF/DOC files** - their text is already extracted during upload
+- OCR is for visual content that needs text extraction, not for processed documents
+
+### **When to Use Each:**
+**Use document content (no tool needed):** User asks "What does my uploaded paper say about..." or references uploaded documents
+**Use OCR tool:** User shares a screenshot, photo, or image file and asks you to extract text from it
+
+Example scenarios:
+- ✅ User uploads PDF → Content automatically available via RAG
+- ✅ User shares screenshot of equation → Use performOCR tool
+- ✅ User uploads image of handwritten notes → Use performOCR tool
+- ❌ User uploads PDF → DO NOT use performOCR tool
 
 When a user asks about molecules, chemical structures, or wants to see a 3D molecular visualization, you MUST call the 'displayMolecule3D' tool. Do NOT generate text tokens like [NEEDS_VISUALIZATION]. Instead, directly call the tool.
 
@@ -174,26 +209,53 @@ IMPORTANT:
 - Use appropriate emphasis, lists, and code blocks to enhance readability`;
   }
 
+  // Use lazy loaded model config
+  const model = await getLazyModelConfig(modelId);
+  
   switch (modelId) {
-    case 'gemini-1.5-flash-latest':
+    case 'gemini-2.5-flash':
       return {
-        model: google('models/gemini-1.5-flash-latest'),
-        system: `${baseSystem}\n\nYou are powered by Gemini 1.5 Flash.`,
+        model,
+        system: `${baseSystem}\n\nYou are powered by Gemini 2.5 Flash.`,
       };
-    case 'claude-3-haiku-20240307':
+    case 'deepseek-reasoner': {
+      // DeepSeek Reasoner excels at math/science but does not support native tool calling.
+      // Use special text tokens for visualizations.
+      const reasonerSystem = baseSystem.replace(
+        'Do NOT generate text tokens like [NEEDS_VISUALIZATION]. Instead, directly call the tool.',
+        'Since you do not support native tool calling, you MUST use special text tokens for visualizations and tools.'
+      );
       return {
-        model: anthropic('claude-3-haiku-20240307'),
-        system: `${baseSystem}\n\nYou are powered by Claude 3 Haiku.`,
+        model,
+        system: `${reasonerSystem}\n\nYou are powered by DeepSeek V3.2 Reasoner with advanced mathematical reasoning capabilities.
+
+## SPECIAL TOKEN SYSTEM FOR VISUALIZATIONS
+
+Since you do not support native function calling, use these special text tokens:
+
+**For 3D Molecular Visualization:**
+[NEEDS_VISUALIZATION:{"type":"molecule3D","identifier":"SMILES_OR_PDB_ID","identifierType":"smiles_or_pdb","description":"Brief description"}]
+
+**For 2D Function Plotting:**
+[NEEDS_VISUALIZATION:{"type":"plot2D","functionString":"sin(x)","variable":{"name":"x","range":[-3.14,3.14]},"title":"Plot Title"}]
+
+**For 3D Function Plotting:**
+[NEEDS_VISUALIZATION:{"type":"plot3D","functionString":"sin(x)*cos(y)","variables":[{"name":"x","range":[-5,5]},{"name":"y","range":[-5,5]}],"title":"3D Plot Title"}]
+
+**For Physics Simulations:**
+[NEEDS_VISUALIZATION:{"type":"physics","simulationType":"collision_demo","metadata":{"title":"Physics Demo","description":"Description"}}]
+
+**For Custom Charts:**
+[NEEDS_VISUALIZATION:{"type":"plotly","data":[{"x":[1,2,3],"y":[1,4,9],"type":"scatter"}],"title":"Chart Title"}]
+
+IMPORTANT: Always use these exact token formats when users request visualizations, molecular structures, plots, or physics simulations.`,
       };
-    case 'gpt-4o':
-      return {
-        model: openai('gpt-4o'),
-        system: `${baseSystem}\n\nYou are powered by GPT-4o.`,
-      };
+    }
     default:
+      // DeepSeek V3.2 (deepseek-chat) supports native tool calling
       return {
-        model: xai('grok-3-mini'),
-        system: `${baseSystem}\n\nYou are powered by Grok-3-Mini with reasoning capabilities.`,
+        model,
+        system: `${baseSystem}\n\nYou are powered by DeepSeek V3.2.`,
       };
   }
 }
@@ -216,17 +278,168 @@ function errorHandler(error: unknown): string {
   }
 }
 
-export async function POST(req: NextRequest) {
+// Helper function for comprehensive tool signal extraction
+function extractAllToolSignals(text: string): Array<{pattern: string, match: string, fullMatch: string}> {
+  const signals = [];
+  const patterns = [
+    /\[NEEDS_VISUALIZATION:({.*?})\]/g,
+    /displayMolecule3D\([^)]*\)/g,
+    /plotFunction[23]D\([^)]*\)/g,
+    /displayPlotlyChart\([^)]*\)/g,
+    /displayPhysicsSimulation\([^)]*\)/g,
+    /performOCR\([^)]*\)/g
+  ];
+  
+  for (const pattern of patterns) {
+    const matches = [...text.matchAll(pattern)];
+    signals.push(...matches.map(m => ({ 
+      pattern: pattern.source, 
+      match: m[0],
+      fullMatch: m[1] || m[0] // Extract JSON content if available
+    })));
+  }
+  
+  return signals;
+}
+
+// Enhanced function to detect tool signals during streaming
+function detectEarlyToolSignals(token: string) {
+  const detectedSignals = [];
+  
+  // Pattern 1: [NEEDS_VISUALIZATION:{...}] format
+  if (token.includes('[NEEDS_VISUALIZATION')) {
+    const visualizationPattern = /\[NEEDS_VISUALIZATION:({.*?})\]/;
+    const match = token.match(visualizationPattern);
+    if (match) {
+      try {
+        const signal = JSON.parse(match[1]);
+        detectedSignals.push({
+          type: 'needs_visualization',
+          signal,
+          rawMatch: match[0]
+        });
+      } catch (err) {
+        console.warn('[Early Tool Detection] Failed to parse NEEDS_VISUALIZATION signal:', err);
+      }
+    }
+  }
+
+  // Pattern 2: Direct tool function calls
+  const toolPatterns = [
+    { name: 'displayMolecule3D', pattern: /displayMolecule3D.*?identifier["\s]*:["\s]*([^"}\s,]+)/ },
+    { name: 'plotFunction2D', pattern: /plotFunction2D.*?functionString["\s]*:["\s]*([^"}\s,]+)/ },
+    { name: 'plotFunction3D', pattern: /plotFunction3D.*?functionString["\s]*:["\s]*([^"}\s,]+)/ },
+    { name: 'displayPlotlyChart', pattern: /displayPlotlyChart/ },
+    { name: 'displayPhysicsSimulation', pattern: /displayPhysicsSimulation.*?simulationType["\s]*:["\s]*([^"}\s,]+)/ },
+    { name: 'performOCR', pattern: /performOCR/ }
+  ];
+
+  for (const { name, pattern } of toolPatterns) {
+    if (pattern.test(token)) {
+      const match = token.match(pattern);
+      detectedSignals.push({
+        type: 'tool_function_call',
+        toolName: name,
+        rawMatch: match ? match[0] : token,
+        extractedParam: match && match[1] ? match[1] : undefined
+      });
+    }
+  }
+
+  return detectedSignals;
+}
+
+async function chatHandler(req: NextRequest): Promise<Response> {
   const body = await req.json();
-  const { 
+  
+  const {
     messages, 
-    model: modelId = 'grok-3-mini',
+    model: modelId = 'deepseek-chat',
     mode = 'chat',
+    conversationId,
   }: { 
     messages: CoreMessage[], 
     model?: string, 
     mode?: 'chat' | 'generate',
+    conversationId?: string,
   } = body;
+
+  // Add validation for messages
+  if (!messages) {
+    console.error('[Chat API] Messages is undefined or null:', messages);
+    return new Response(JSON.stringify({ 
+      error: 'Messages array is required but was not provided' 
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!Array.isArray(messages)) {
+    console.error('[Chat API] Messages is not an array:', typeof messages, messages);
+    return new Response(JSON.stringify({ 
+      error: 'Messages must be an array' 
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (messages.length === 0) {
+    console.error('[Chat API] Messages array is empty');
+    return new Response(JSON.stringify({ 
+      error: 'Messages array cannot be empty' 
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Get authentication session
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  // Handle conversation persistence
+  let currentConversationId = conversationId;
+  let isNewConversation = false;
+
+  // If we have a user and no conversation ID, create a new conversation
+  if (userId && !currentConversationId && messages.length > 0) {
+    try {
+      // Convert CoreMessage to Message format for title generation
+      const messagesForTitle = messages.map((msg, index) => ({
+        id: `temp-${index}`,
+        role: msg.role,
+        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+        createdAt: new Date()
+      }));
+      const title = generateConversationTitle(messagesForTitle as any);
+      const conversation = await createConversation({
+        userId,
+        title,
+        model: modelId
+      });
+      currentConversationId = conversation.id;
+      isNewConversation = true;
+    } catch (error) {
+      console.error('[Chat API] Failed to create conversation:', error);
+      // Continue without persistence - will fall back to localStorage
+    }
+  }
+
+  // If we have a conversation ID, verify access
+  if (currentConversationId && userId) {
+    try {
+      const conversation = await getConversationById(currentConversationId, userId);
+      if (!conversation) {
+        console.warn('[Chat API] Conversation not found or access denied:', currentConversationId);
+        currentConversationId = undefined;
+      }
+    } catch (error) {
+      console.error('[Chat API] Error verifying conversation access:', error);
+      currentConversationId = undefined;
+    }
+  }
 
   const lastUserMessage = messages
     .filter((message: CoreMessage) => message.role === 'user')
@@ -239,42 +452,31 @@ export async function POST(req: NextRequest) {
       const isSimpleQuery = detectSimpleQuery(lastUserMessage.content);
       
       if (!isSimpleQuery) {
-        console.log('RAG is enabled, searching documents for:', lastUserMessage.content.substring(0, 50) + '...');
-        const relevantDocs = await searchDocumentsOptimized(lastUserMessage.content, 3);
+        const relevantDocs = await searchDocumentsOptimized(lastUserMessage.content, 3, userId);
+
         if (relevantDocs && relevantDocs.length > 0) {
           context = `Here is some relevant information that may help answer the question:\n\n` +
             relevantDocs.map((doc) => {
               return `Document: \"${doc.title}\"\nContent: ${doc.content}\n`;
             }).join('\n');
         }
-      } else {
-        console.log('Simple query detected - skipping RAG for:', lastUserMessage.content.substring(0, 50) + '...');
       }
     } catch (error) {
-      console.error('Error searching documents (RAG enabled):', error);
+      console.error('[RAG] Error searching documents:', error);
     }
-  } else if (lastUserMessage && typeof lastUserMessage.content === 'string'){
-    console.log('RAG is disabled or last user message is not suitable for search. Skipping document search.');
   }
 
-  const modelConfig = getModelConfig(modelId, mode);
+      const modelConfig = await getModelConfigLocal(modelId, mode);
   
   const systemPromptWithContext = context 
     ? `${modelConfig.system}\n\n${context}`
     : modelConfig.system;
 
-  console.log('[Chat API] ===== NEW REQUEST =====');
-  console.log('[Chat API] Model:', modelId, 'Mode:', mode);
-  console.log('[Chat API] Messages count:', messages.length);
-  console.log('[Chat API] Last message:', messages[messages.length - 1]?.content?.toString().substring(0, 100));
-  console.log('[Chat API] Available tools:', mode === 'chat' ? Object.keys(visualizationTools) : ['generateReactComponent']);
-  console.log('[Chat API] System prompt includes:', systemPromptWithContext.includes('displayMolecule3D') ? 'displayMolecule3D instructions' : 'no tool instructions');
-
   try {
     const result = await streamText({
-      model: modelConfig.model,
+      model: modelConfig.model as any,
       system: systemPromptWithContext,
-      messages,
+      messages: messages,
       maxSteps: mode === 'generate' ? 5 : 3,
       tools: mode === 'generate' ? { 
         generateReactComponent: {
@@ -289,32 +491,104 @@ export async function POST(req: NextRequest) {
           }
         }
       } : visualizationTools,
-      onFinish: ({ text, toolCalls, toolResults, finishReason, usage }) => {
-        console.log('[onFinish] ===== STREAM FINISHED =====');
-        console.log('[onFinish] Finish Reason:', finishReason);
-        console.log('[onFinish] Usage:', usage);
-        console.log('[onFinish] Text:', text?.substring(0, 200) + (text?.length > 200 ? '...' : ''));
-        console.log('[onFinish] Tool Calls Count:', toolCalls?.length || 0);
-        if (toolCalls && toolCalls.length > 0) {
-          console.log('[onFinish] Tool Calls:', JSON.stringify(toolCalls, null, 2));
+      onFinish: async ({ text, toolCalls, toolResults, finishReason, usage, steps }) => {
+        try {
+          // Save conversation to database if authenticated
+          if (currentConversationId && userId && text) {
+            try {
+              const lastUserMsg = messages[messages.length - 1];
+              if (lastUserMsg && lastUserMsg.role === 'user') {
+                await saveMessage({
+                  conversationId: currentConversationId,
+                  role: 'user',
+                  content: typeof lastUserMsg.content === 'string' ? lastUserMsg.content : JSON.stringify(lastUserMsg.content),
+                  parts: Array.isArray(lastUserMsg.content) ? lastUserMsg.content : undefined,
+                  metadata: { timestamp: new Date().toISOString() }
+                });
+              }
+
+              const assistantMessage = await saveMessage({
+                conversationId: currentConversationId,
+                role: 'assistant',
+                content: text,
+                tokenUsage: usage,
+                metadata: {
+                  finishReason,
+                  stepCount: steps?.length,
+                  timestamp: new Date().toISOString()
+                }
+              });
+
+              if (toolCalls && toolCalls.length > 0 && assistantMessage) {
+                for (let i = 0; i < toolCalls.length; i++) {
+                  const toolCall = toolCalls[i] as any;
+                  const toolResult = toolResults?.[i] as any;
+
+                  await saveToolInvocation({
+                    messageId: assistantMessage.id,
+                    toolName: toolCall.toolName || toolCall.name || 'unknown',
+                    parameters: toolCall.args || toolCall.parameters,
+                    result: toolResult?.result,
+                    executionTime: toolResult?.executionTime
+                  });
+                }
+              }
+            } catch (dbError) {
+              console.error('[Chat API] Error saving to database:', dbError);
+              if (!userId) {
+                try {
+                  const allMessages = [...messages, {
+                    id: `msg-${Date.now()}`,
+                    role: 'assistant',
+                    content: text,
+                    createdAt: new Date()
+                  }];
+                  saveToLocalStorage(currentConversationId || `chat-${Date.now()}`, allMessages as any);
+                } catch (lsError) {
+                  console.error('[Chat API] Error saving to localStorage:', lsError);
+                }
+              }
+            }
+          }
+
+          // Process text tokens for models that don't support native tool calling
+          if (text) {
+            extractAllToolSignals(text);
+          }
+        } catch (error) {
+          console.error('[Chat API] Error in onFinish:', error);
         }
-        if (toolResults && toolResults.length > 0) {
-          console.log('[onFinish] Tool Results:', JSON.stringify(toolResults, null, 2));
-        }
-        console.log('[onFinish] Available Tools:', Object.keys(visualizationTools));
       }
     });
 
-    return result.toDataStreamResponse({ 
-      getErrorMessage: errorHandler 
+    const response = result.toDataStreamResponse({ 
+      getErrorMessage: errorHandler
     });
 
+    // Add conversation ID to response headers if available
+    if (currentConversationId) {
+      response.headers.set('X-Conversation-Id', currentConversationId);
+    }
+    if (isNewConversation) {
+      response.headers.set('X-New-Conversation', 'true');
+    }
+
+    return response;
+
   } catch (error) {
-    console.error('Error in streamText call or its setup:', error);
+    console.error('Error in enhanced streamText call:', error);
+    
     const message = errorHandler(error);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
-} 
+}
+
+// Named async function export — Next.js 15.3+ requires static-analyzable exports.
+// Using `export const POST = HOF(fn)` can silently fail static analysis and
+// cause Next.js to return 405 Method Not Allowed for valid POST requests.
+export async function POST(req: NextRequest) {
+  return trackAPIPerformanceDetailed(chatHandler)(req);
+}

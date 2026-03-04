@@ -1,5 +1,5 @@
-import React from 'react';
-import { Message as VercelMessage, ToolInvocation as VercelToolInvocation } from 'ai';
+import React, { Suspense, useEffect, useRef } from 'react';
+import { Message as VercelMessage } from 'ai';
 import dynamic from 'next/dynamic';
 import PendingVisualizationCard from './visualizations/PendingVisualizationCard';
 import Simple3DMolViewer from './visualizations/Simple3DMolViewer';
@@ -9,12 +9,14 @@ import OCRResult from './OCRResult';
 // import PlotlyPlotter from './visualizations/PlotlyPlotter'; // Keep if other tools are added soon
 import VisualizationErrorBoundary from './visualizations/VisualizationErrorBoundary';
 import CodePreview from './CodePreview';
+import { Typography } from './ui/Typography';
+import { ToolLoadingState } from './ui/LoadingStates';
+import { StreamingMarkdown } from './ui/StreamingMarkdown';
+import { ToolResultRenderer, estimateThinkingTime } from './chat/ToolResultRenderer';
+import { ThinkingTracesArtifact } from './chat/ThinkingTracesArtifact';
 
-// Dynamic import for MarkdownRenderer to optimize performance
-const MarkdownRenderer = dynamic(() => import('./MarkdownRenderer'), {
-  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-20 rounded"></div>,
-  ssr: false
-});
+import MarkdownRenderer from './MarkdownRenderer';
+import { TypingIndicator } from './ui/LoadingStates';
 
 const PlotlyPlotter = dynamic(() => import('./visualizations/PlotlyPlotter'), {
   ssr: false,
@@ -29,11 +31,15 @@ type Message = VercelMessage;
 
 interface ChatMessagesProps {
   messages: Message[];
-  // pendingVisualizations prop is removed
+  isLoading?: boolean;
 }
 
 // Enhanced helper to clean up AI content, removing specific markers and improving formatting
-function formatAndCleanContent(content: string): string {
+function formatAndCleanContent(content: string | null | undefined): string {
+  if (!content || typeof content !== 'string') {
+    return '';
+  }
+  
   let cleanedContent = content;
   
   // Remove visualization markers
@@ -48,130 +54,204 @@ function formatAndCleanContent(content: string): string {
   return cleanedContent.trim();
 }
 
-export default function ChatMessages({ messages }: ChatMessagesProps) {
+// Visualization renderer component
+const VisualizationRenderer: React.FC<{ toolName: string; result: unknown }> = ({ toolName, result }) => {
+  const renderVisualization = () => {
+    switch (toolName) {
+      case 'displayMolecule3D':
+        // Check if the result has advanced options
+        const hasAdvancedOptions = result && typeof result === 'object' && result !== null && (
+          (result as any).representationStyle !== 'stick' ||
+          (result as any).colorScheme !== 'element' ||
+          ((result as any).selections && (result as any).selections.length > 0) ||
+          (result as any).showSurface ||
+          (result as any).showLabels ||
+          (result as any).backgroundColor !== 'white'
+        );
+
+        // Use Advanced3DMolViewer if any advanced options are present
+        if (hasAdvancedOptions) {
+          return <Advanced3DMolViewer {...(result as any)} />;
+        } else {
+          // Fall back to Simple3DMolViewer for basic usage
+          return <Simple3DMolViewer {...(result as any)} />;
+        }
+
+      case 'displayPlotlyChart':
+      case 'plotFunction2D':
+      case 'plotFunction3D':
+        return <PlotlyPlotter {...(result as any)} />;
+
+      case 'displayPhysicsSimulation':
+        return <MatterSimulator {...(result as any)} />;
+
+      case 'performOCR':
+        return <OCRResult {...(result as any)} />;
+
+      default:
+        // Fallback for unhandled tools - show raw result
+        return (
+          <div>
+            <Typography variant="small" className="text-neutral-400 mb-2 font-medium">
+              Tool: {toolName}
+            </Typography>
+            <CodePreview code={JSON.stringify(result, null, 2)} />
+          </div>
+        );
+    }
+  };
+
+  return (
+    <VisualizationErrorBoundary fallback={
+      <div className="text-center py-4">
+        <Typography variant="small" color="error">
+          Error rendering tool output
+        </Typography>
+      </div>
+    }>
+      <Suspense fallback={
+        <div className="flex items-center justify-center py-8">
+          <div className="w-6 h-6 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+          <span className="ml-2 text-sm text-neutral-400">Loading visualization...</span>
+        </div>
+      }>
+        {renderVisualization()}
+      </Suspense>
+    </VisualizationErrorBoundary>
+  );
+};
+
+export default function ChatMessages({ messages, isLoading = false }: ChatMessagesProps) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length, isLoading]);
+
   if (!messages || messages.length === 0) {
     return (
-      <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-        <p className="text-lg">No messages yet. Start a conversation!</p>
-        <p className="text-sm">Ask about STEM topics, request visualizations, or upload documents.</p>
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="text-center max-w-md">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[#2f2f2f] flex items-center justify-center">
+            <svg className="w-6 h-6 text-[#8e8ea0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-medium text-white mb-2">
+            How can I help you today?
+          </h3>
+          <p className="text-[#8e8ea0]">
+            Ask about science, mathematics, or upload documents for analysis
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 pb-4">
-      {messages.map((message) => (
-        <div
-          key={message.id}
-          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-        >
-          <div
-            className={`max-w-2xl w-full p-3 md:p-4 rounded-xl shadow-md flex flex-col ${ 
-              message.role === 'user'
-                ? 'bg-blue-500 text-white'
-                : 'bg-white dark:bg-gray-700 dark:text-gray-100'
-            }`}
-          >
-            <div className="text-xs font-semibold mb-1 opacity-80">
-              {message.role === 'user' ? 'You' : 'AI Assistant'}
-            </div>
-            
-            {/* Render message content (text parts) */}
-            {message.content && (
-              <MarkdownRenderer 
-                content={formatAndCleanContent(message.content)}
-                className="break-words"
-                darkMode={true} // You can make this dynamic based on theme context
-              />
-            )}
-
-
-
-            {/* Render Tool Invocations if any */}
-            {message.toolInvocations?.map((toolInvocation) => {
-              const { toolCallId, toolName, state } = toolInvocation;
-              
-              // Access result differently based on state
-              const result = 'result' in toolInvocation ? toolInvocation.result : null;
-              const error = 'error' in toolInvocation ? toolInvocation.error : null;
-
-              console.log('[ChatMessages] Rendering tool invocation:', { toolName, state, result });
-
-              return (
-                <div key={toolCallId} className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 w-full">
-                  <VisualizationErrorBoundary fallback={<div>Error rendering tool output.</div>}>
-                    {state === 'call' && (
-                      <PendingVisualizationCard 
-                        status="loading" 
-                        message={`AI is calling tool: ${toolName}...`}
-                      />
-                    )}
-                    {state === 'result' && result && (
-                      <>
-                        {toolName === 'displayMolecule3D' && (
-                          (() => {
-                            // Check if the result has advanced options
-                            const hasAdvancedOptions = result && (
-                              result.representationStyle !== 'stick' ||
-                              result.colorScheme !== 'element' ||
-                              (result.selections && result.selections.length > 0) ||
-                              result.showSurface ||
-                              result.showLabels ||
-                              result.backgroundColor !== 'white'
-                            );
-
-                            console.log('[ChatMessages] displayMolecule3D advanced check:', { hasAdvancedOptions, result });
-
-                            // Use Advanced3DMolViewer if any advanced options are present
-                            if (hasAdvancedOptions) {
-                              return <Advanced3DMolViewer {...(result as any)} />;
-                            } else {
-                              // Fall back to Simple3DMolViewer for basic usage
-                              return <Simple3DMolViewer {...(result as any)} />;
-                            }
-                          })()
-                        )}
-                        {toolName === 'displayPlotlyChart' && (
-                          <PlotlyPlotter {...(result as any)} /> 
-                        )}
-                        {(toolName === 'plotFunction2D' || toolName === 'plotFunction3D') && (
-                          <PlotlyPlotter {...(result as any)} />
-                        )}
-                        {toolName === 'displayPhysicsSimulation' && (
-                          <MatterSimulator {...(result as any)} />
-                        )}
-                        {toolName === 'performOCR' && (
-                          <OCRResult {...(result as any)} />
-                        )}
-                        {/* Fallback for unhandled tools or to show raw result */}
-                        {!['displayMolecule3D', 'displayPlotlyChart', 'plotFunction2D', 'plotFunction3D', 'displayPhysicsSimulation', 'performOCR'].includes(toolName) && (
-                           <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
-                            <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Tool: {toolName}</p>
-                            <CodePreview code={JSON.stringify(result, null, 2)} />
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {state === 'partial-call' && (
-                      <PendingVisualizationCard 
-                        status="loading" 
-                        message={`Preparing tool: ${toolName}...`}
-                      />
-                    )}
-                    {error && (
-                       <PendingVisualizationCard 
-                        status="error" 
-                        message={`Error using tool: ${toolName}`}
-                        errorMessage={typeof error === 'string' ? error : JSON.stringify(error)}
-                      />
-                    )}
-                  </VisualizationErrorBoundary>
+    <div className="flex-1 overflow-y-auto bg-[#212121]">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {messages.map((message, index) => (
+          <div key={message.id} className="animate-fade-in">
+            {message.role === 'user' ? (
+              // User message — right-aligned bubble
+              <div className="flex justify-end mb-6">
+                <div className="max-w-2xl">
+                  <div className="bg-[#2f2f2f] rounded-2xl px-4 py-3 border border-[#4d4d4d]">
+                    <p className="text-white leading-relaxed">{message.content}</p>
+                  </div>
                 </div>
-              );
-            })}
+              </div>
+            ) : (
+              // AI message — ChatGPT style with avatar
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  {/* AI Avatar */}
+                  <div className="w-8 h-8 rounded-full bg-[#19c37d] flex items-center justify-center flex-shrink-0 mt-1">
+                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                  </div>
+                  
+                  <div className="flex-1 space-y-4 min-w-0">
+                    {/* Thinking traces from reasoning parts */}
+                    {message.parts?.map((part, partIndex) => {
+                      if (part.type === 'reasoning') {
+                        return (
+                          <ThinkingTracesArtifact
+                            key={`${message.id}-reasoning-${partIndex}`}
+                            reasoning={part.details?.map(detail => 
+                              detail.type === 'text' ? detail.text : (detail.type === 'redacted' ? '<redacted>' : '')
+                            ).join('') || ''}
+                            reasoningDetails={part.details}
+                            metadata={{
+                              tokenCount: part.details?.map(d => 
+                                d.type === 'text' ? (d.text || '').split(' ').length : 0
+                              ).reduce((a, b) => a + b, 0),
+                            }}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+
+                    {/* Message content */}
+                    {message.content && typeof message.content === 'string' && (
+                      <div className="prose prose-invert max-w-none">
+                        {message.role === 'assistant' && message.id === messages[messages.length - 1]?.id && index === messages.length - 1 ? (
+                          // Latest message - use streaming if available
+                          <StreamingMarkdown 
+                            text={formatAndCleanContent(message.content)}
+                            className="text-[#c5c5d2] leading-relaxed"
+                            speed={10}
+                            streamingMode="word"
+                          />
+                        ) : (
+                          // Completed message
+                          <MarkdownRenderer 
+                            content={formatAndCleanContent(message.content)}
+                            className="text-[#c5c5d2] leading-relaxed"
+                            darkMode={true}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tool results using new renderer */}
+                    {message.toolInvocations?.map((toolInvocation, toolIndex) => (
+                      <ToolResultRenderer
+                        key={`${message.id}-tool-${toolIndex}`}
+                        toolInvocation={toolInvocation}
+                        thinkingTime={estimateThinkingTime(toolInvocation.toolName, 'result' in toolInvocation ? toolInvocation.result : undefined)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        ))}
+
+        {/* Typing indicator — shown while the API is responding */}
+        {isLoading && (
+          <div className="animate-fade-in">
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-[#19c37d] flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                </div>
+                <div className="flex items-center pt-2">
+                  <TypingIndicator />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
     </div>
   );
 } 

@@ -1,0 +1,36 @@
+# Vercel deployment ignore file
+# Only exclude files that are truly unnecessary for production
+
+# Development files that contain secrets
+.env.local
+.env.development
+.env.test
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts that aren't needed
+.next/
+node_modules/
+
+# Documentation (optional - you can include these if needed)
+README.md
+CHANGELOG.md
+
+# Scripts not needed in production (optional)
+scripts/verify-setup.js
+scripts/test-db-connection.js 

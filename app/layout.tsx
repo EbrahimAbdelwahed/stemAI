@@ -1,6 +1,11 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Toaster } from 'sonner';
+import { Inter } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Providers } from './providers';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'STEM AI Assistant',
@@ -13,10 +18,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <body className="font-sans antialiased">
-        {children}
-        <Toaster position="top-center" richColors closeButton />
+    <html lang="en" className="dark">
+      <body className={`${inter.className} bg-gray-950 text-gray-100 antialiased`}>
+        <Providers>
+          {children}
+        </Providers>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

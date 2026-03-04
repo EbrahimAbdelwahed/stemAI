@@ -14,11 +14,6 @@ export const moleculeViewerTool = {
   description: 'Generates parameters for 3D visualization of molecules. Use this when a user asks to see a molecular structure. Provide a SMILES string or PubChem CID if possible.',
   parameters: moleculeViewerToolSchema,
   execute: async (params: z.infer<typeof moleculeViewerToolSchema>) => {
-    console.log('moleculeViewerTool executed with:', params);
-    // TODO: Add logic to potentially fetch SMILES/3D data if only a name/CID is provided,
-    // or canonicalize SMILES using RDKit.js if needed before passing to viewer.
-    // This might involve calling another tool or a helper function.
-
     const description = `3D molecular view of '${params.title || params.identifier}'. Identifier: ${params.identifier} (type: ${params.identifierType}). Style: ${params.representationStyle}, Colors: ${params.colorScheme}.`;
 
     return {

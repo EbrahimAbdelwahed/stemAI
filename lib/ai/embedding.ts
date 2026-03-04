@@ -36,9 +36,11 @@ export async function generateEmbeddings(
 ): Promise<Array<{ embedding: number[]; content: string }>> {
   if (process.env.RAG_ENABLED !== 'true') {
     console.warn('RAG is disabled. Skipping generateEmbeddings.');
-    // Return empty array or handle as appropriate for your application
-    // This will prevent calling embedMany and thus avoid OpenAI API key issues if RAG is off
-    return []; 
+    return [];
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn('[RAG] OPENAI_API_KEY is not set. Skipping embeddings.');
+    return [];
   }
   const chunks = generateChunks(content);
   const { embeddings } = await embedMany({

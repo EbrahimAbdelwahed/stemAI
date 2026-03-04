@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeOCR } from '../../../lib/ai/tools/ocrTool';
+import { trackAPIPerformance } from '../../../lib/analytics/api-performance-middleware';
 
-export async function POST(req: NextRequest) {
+async function ocrHandler(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File;
@@ -75,4 +76,9 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
+
+// Named function export — required for Next.js 15.3+ static analysis
+export async function POST(req: NextRequest) {
+  return trackAPIPerformance(ocrHandler)(req);
+}
