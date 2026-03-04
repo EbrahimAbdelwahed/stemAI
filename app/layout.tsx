@@ -1,12 +1,10 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-
-const inter = Inter({ subsets: ['latin'] });
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: 'STEM AI Assistant',
-  description: 'AI assistant for STEM topics with RAG capabilities',
+  description: 'AI-powered learning platform for STEM topics with molecular visualization, physics simulations, and more.',
 };
 
 export default function RootLayout({
@@ -15,9 +13,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-gray-950 text-gray-100 antialiased`}>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className="font-sans antialiased">
         {children}
+        <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
   );

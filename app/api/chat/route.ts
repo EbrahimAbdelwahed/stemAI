@@ -198,7 +198,7 @@ IMPORTANT:
   }
 }
 
-export function errorHandler(error: unknown): string {
+function errorHandler(error: unknown): string {
   if (error == null) {
     return 'Unknown error';
   }

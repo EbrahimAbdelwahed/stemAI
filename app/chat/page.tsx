@@ -1,267 +1,294 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useChat, Message as VercelMessage } from '@ai-sdk/react'; 
-import ModelSelector from '../../components/ModelSelector';
-import ChatInput from '../../components/ChatInput';
-import ChatMessages from '../../components/ChatMessages';
-import FileUploader from '../../components/FileUploader';
-import { Button } from '../../components/ui/button';
+import { useChat, Message as VercelMessage } from '@ai-sdk/react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import { track } from '@vercel/analytics';
+import { ChatHeader } from '../../components/chat-header';
+import { ChatMessages } from '../../components/chat-messages';
+import { ChatInput } from '../../components/chat-input';
+import { ChatSidebar } from '../../components/chat-sidebar';
+import { WelcomeScreen } from '../../components/welcome-screen';
 
-// Message type from Vercel AI SDK is used directly.
-// The SDK's Message type should include toolInvocations for Vercel AI SDK v3+.
 type Message = VercelMessage;
 
-type ModelType = 'grok-3-mini' | 'gemini-2-flash' | 'gpt-4o' | 'claude-3-haiku';
+interface ChatSession {
+  id: string;
+  title: string;
+  lastMessage?: string;
+  timestamp: number;
+}
 
-const LOCAL_STORAGE_CHAT_ID_KEY = 'stem-ai-chat-id';
-const LOCAL_STORAGE_MESSAGES_KEY_PREFIX = 'stem-ai-chat-messages-';
+const STORAGE_PREFIX = 'stem-ai-';
+const SESSIONS_KEY = `${STORAGE_PREFIX}sessions`;
+const ACTIVE_SESSION_KEY = `${STORAGE_PREFIX}active-session`;
+const MESSAGES_PREFIX = `${STORAGE_PREFIX}messages-`;
+
+function loadSessions(): ChatSession[] {
+  try {
+    const raw = localStorage.getItem(SESSIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessions(sessions: ChatSession[]) {
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+}
 
 export default function ChatPage() {
   const [chatId, setChatId] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<ModelType>('gpt-4o');
+  const [selectedModel, setSelectedModel] = useState('gpt-4o');
   const [isUploading, setIsUploading] = useState(false);
-  // pendingVisualizations state is removed as per refactoring plan.
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
 
-  const { 
-    messages, 
-    input, 
-    handleInputChange, 
-    handleSubmit: originalHandleSubmit, 
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit: originalHandleSubmit,
     isLoading,
-    reload,
     stop,
-    error: chatError, 
-    setMessages, 
-    append 
+    error: chatError,
+    setMessages,
+    append,
+    setInput,
   } = useChat({
     api: '/api/chat',
-    body: {
-      model: selectedModel,
-    },
-    id: chatId, 
+    body: { model: selectedModel },
+    id: chatId,
     onFinish: (message) => {
-      console.log('[ChatPage] onFinish called with message:', message);
       track('ChatResponded', { model: selectedModel, messageId: message.id });
     },
     onError: (err) => {
-      console.error('[ChatPage] Chat error from onError callback:', err);
+      console.error('[ChatPage] Chat error:', err);
       toast.error(`Chat error: ${err.message}`);
-      track('ChatError', { model: selectedModel, error: err.message });
     },
   });
 
+  // Initialize: load sessions and active chat
   useEffect(() => {
-    const storedChatId = localStorage.getItem(LOCAL_STORAGE_CHAT_ID_KEY);
-    if (storedChatId) {
-      setChatId(storedChatId);
-      const storedMessages = localStorage.getItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${storedChatId}`);
+    const storedSessions = loadSessions();
+    setSessions(storedSessions);
+
+    const activeId = localStorage.getItem(ACTIVE_SESSION_KEY);
+    if (activeId) {
+      setChatId(activeId);
+      const storedMessages = localStorage.getItem(`${MESSAGES_PREFIX}${activeId}`);
       if (storedMessages) {
         try {
-          const parsedMessages: Message[] = JSON.parse(storedMessages);
-          const validMessages = parsedMessages.map(msg => ({
+          const parsed: Message[] = JSON.parse(storedMessages);
+          const valid = parsed.map((msg) => ({
             ...msg,
-            // Ensure `parts` is always an array, even if empty, for consistent rendering logic.
-            // And provide a default text part if only content string exists, for older SDK versions.
-            parts: msg.parts && msg.parts.length > 0 ? msg.parts : (msg.content ? [{ type: 'text', text: msg.content as string }] : [])
+            parts:
+              msg.parts && msg.parts.length > 0
+                ? msg.parts
+                : msg.content
+                  ? [{ type: 'text' as const, text: msg.content as string }]
+                  : [],
           }));
-          setMessages(validMessages);
-        } catch (e) {
-          console.error("Failed to parse messages from localStorage", e);
-          localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${storedChatId}`);
-          setMessages([]); 
+          setMessages(valid);
+        } catch {
+          localStorage.removeItem(`${MESSAGES_PREFIX}${activeId}`);
+          setMessages([]);
         }
       }
     } else {
-      const newChatId = uuidv4();
-      setChatId(newChatId);
-      localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, newChatId);
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
-          parts: [{ type: 'text', text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
-        }
-      ]);
+      const newId = uuidv4();
+      setChatId(newId);
+      localStorage.setItem(ACTIVE_SESSION_KEY, newId);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setChatId, setMessages]); // Adjusted dependencies to reflect what causes initialization
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Save messages to localStorage
   useEffect(() => {
-    if (chatId && messages.length > 0) {
-      try {
-        localStorage.setItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatId}`, JSON.stringify(messages));
-      } catch (e) {
-        console.error("Failed to save messages to localStorage", e);
-        toast.error("Could not save chat history. Storage might be full.");
+    if (!chatId || messages.length === 0) return;
+    try {
+      localStorage.setItem(`${MESSAGES_PREFIX}${chatId}`, JSON.stringify(messages));
+
+      // Update session title from first user message
+      const firstUserMsg = messages.find((m) => m.role === 'user');
+      if (firstUserMsg) {
+        const title = (firstUserMsg.content || '').slice(0, 50) || 'New conversation';
+        setSessions((prev) => {
+          const exists = prev.find((s) => s.id === chatId);
+          let updated: ChatSession[];
+          if (exists) {
+            updated = prev.map((s) =>
+              s.id === chatId ? { ...s, title, timestamp: Date.now() } : s
+            );
+          } else {
+            updated = [{ id: chatId, title, timestamp: Date.now() }, ...prev];
+          }
+          saveSessions(updated);
+          return updated;
+        });
       }
+    } catch {
+      toast.error('Could not save chat history.');
     }
   }, [chatId, messages]);
 
-  // useEffect for processing visualizationSignal and fetchVisualizationParams is removed.
-  // fetchVisualizationParams function is removed.
-
-  const handleModelChange = (newModel: ModelType) => {
-    setSelectedModel(newModel);
-    track('ModelChanged', { newModel });
-  };
-
-  const handleFileUploadCallback = useCallback((files: File[]) => {
-    if (!files || files.length === 0) {
-      toast.error('No file selected for upload.');
-      return;
-    }
-
-    setIsUploading(true);
-
-    // Process multiple files
-    const processFiles = async () => {
-      for (const file of files) {
-        const isImage = file.type.startsWith('image/');
-        const endpoint = isImage ? '/api/ocr' : '/api/documents';
-        
-        try {
-          console.log(`[ChatPage] Processing ${isImage ? 'image' : 'document'}: ${file.name}`);
-          toast.info(`Processing ${file.name}...`);
-          track('FileUploadStarted', { fileName: file.name, fileSize: file.size, fileType: isImage ? 'image' : 'document' });
-
-          const formData = new FormData();
-          formData.append('file', file);
-
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `Failed to process file: ${response.statusText}`);
-          }
-
-          const result = await response.json();
-
-          if (isImage) {
-            // Handle OCR result
-            const ocrMessage = `📸 **OCR Results from "${file.name}":**
-
-${result.extractedText}${result.hasFormulas ? '\n\n*✨ Mathematical formulas detected and formatted in LaTeX*' : ''}
-
-${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.originalSize} → ${result.optimizedSize}*` : ''}`;
-
-            append({
-              id: uuidv4(),
-              role: 'assistant',
-              content: ocrMessage,
-              parts: [{ type: 'text', text: ocrMessage }]
-            });
-
-            toast.success(`OCR completed for ${file.name}! ${result.extractedText.length} characters extracted.`);
-            track('OCRSucceeded', { 
-              fileName: file.name, 
-              textLength: result.extractedText.length,
-              hasFormulas: result.hasFormulas,
-              processingTime: result.processingTime 
-            });
-          } else {
-            // Handle document upload result
-            toast.success(`${file.name} uploaded successfully! You can now ask questions about it.`);
-            append({
-              id: uuidv4(),
-              role: 'user',
-              content: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`,
-              parts: [{type: 'text', text: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`}]
-            });
-            track('FileUploadSucceeded', { fileName: file.name, documentId: result.documentId });
-          }
-
-        } catch (error: any) {
-          console.error(`File processing error for ${file.name}:`, error);
-          toast.error(`Processing failed for ${file.name}: ${error.message}`);
-          track('FileProcessingFailed', { fileName: file.name, error: error.message, fileType: isImage ? 'image' : 'document' });
-        }
-      }
-    };
-
-    processFiles().finally(() => {
-      setIsUploading(false);
-    });
-  }, [append, setIsUploading]);
-
-  const handleClearChat = () => {
-    const newChatId = uuidv4();
-    if(chatId) localStorage.removeItem(`${LOCAL_STORAGE_MESSAGES_KEY_PREFIX}${chatId}`);
-    setChatId(newChatId); 
-    localStorage.setItem(LOCAL_STORAGE_CHAT_ID_KEY, newChatId);
-    const welcomeMessage: Message = {
-      id: 'welcome',
-      role: 'assistant',
-      content: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics.",
-      parts: [{ type: 'text', text: "Hello! I'm your STEM AI Assistant. Ask me anything about science, technology, engineering, or mathematics." }]
-    };
-    setMessages([welcomeMessage]);
-    toast.info('Chat cleared and new session started.');
+  const handleNewChat = useCallback(() => {
+    const newId = uuidv4();
+    setChatId(newId);
+    localStorage.setItem(ACTIVE_SESSION_KEY, newId);
+    setMessages([]);
+    toast.info('New conversation started.');
     track('ChatCleared');
-  };
-  
-  const handleSubmitWithOptions = (e: React.FormEvent<HTMLFormElement>, options?: { data?: Record<string, any> }) => {
+  }, [setMessages]);
+
+  const handleSelectSession = useCallback(
+    (id: string) => {
+      setChatId(id);
+      localStorage.setItem(ACTIVE_SESSION_KEY, id);
+      const stored = localStorage.getItem(`${MESSAGES_PREFIX}${id}`);
+      if (stored) {
+        try {
+          setMessages(JSON.parse(stored));
+        } catch {
+          setMessages([]);
+        }
+      } else {
+        setMessages([]);
+      }
+    },
+    [setMessages]
+  );
+
+  const handleDeleteSession = useCallback(
+    (id: string) => {
+      localStorage.removeItem(`${MESSAGES_PREFIX}${id}`);
+      setSessions((prev) => {
+        const updated = prev.filter((s) => s.id !== id);
+        saveSessions(updated);
+        return updated;
+      });
+      if (id === chatId) {
+        handleNewChat();
+      }
+    },
+    [chatId, handleNewChat]
+  );
+
+  const handleFileUpload = useCallback(
+    (files: File[]) => {
+      if (!files?.length) return;
+      setIsUploading(true);
+
+      const processFiles = async () => {
+        for (const file of files) {
+          const isImage = file.type.startsWith('image/');
+          const endpoint = isImage ? '/api/ocr' : '/api/documents';
+
+          try {
+            toast.info(`Processing ${file.name}...`);
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch(endpoint, { method: 'POST', body: formData });
+            if (!response.ok) {
+              const err = await response.json();
+              throw new Error(err.error || `Failed to process: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (isImage) {
+              const ocrMessage = `**OCR Results from "${file.name}":**\n\n${result.extractedText}${result.hasFormulas ? '\n\n*Mathematical formulas detected and formatted in LaTeX*' : ''}`;
+              append({
+                id: uuidv4(),
+                role: 'assistant',
+                content: ocrMessage,
+                parts: [{ type: 'text', text: ocrMessage }],
+              });
+              toast.success(`OCR completed for ${file.name}`);
+            } else {
+              toast.success(`${file.name} uploaded successfully!`);
+              append({
+                id: uuidv4(),
+                role: 'user',
+                content: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`,
+                parts: [
+                  {
+                    type: 'text',
+                    text: `I have uploaded the document "${file.name}". Please summarize its key points.`,
+                  },
+                ],
+              });
+            }
+          } catch (error: any) {
+            console.error(`File processing error for ${file.name}:`, error);
+            toast.error(`Processing failed for ${file.name}: ${error.message}`);
+          }
+        }
+      };
+
+      processFiles().finally(() => setIsUploading(false));
+    },
+    [append]
+  );
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     track('ChatSubmitted', { model: selectedModel, inputLength: input.length });
-    originalHandleSubmit(e, options as any); 
+    originalHandleSubmit(e);
   };
 
+  const handleSuggestionClick = (suggestion: string) => {
+    setInput(suggestion);
+  };
+
+  const showWelcome = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
-      <header className="sticky top-0 z-10 flex items-center justify-between p-4 border-b bg-white dark:bg-gray-800 dark:border-gray-700">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">STEM AI Assistant</h1>
-        <div className="flex items-center space-x-2">
-          {/* Changed to onUpload as per linter suggestion */}
-          <FileUploader onUpload={handleFileUploadCallback} isUploading={isUploading} disabled={isLoading} />
-          <ModelSelector selectedModel={selectedModel} onModelChange={handleModelChange} disabled={isLoading}/>
-          <Button variant="outline" onClick={handleClearChat} disabled={isLoading} className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-            New Chat
-          </Button>
-        </div>
-      </header>
+    <div className="flex h-dvh bg-background">
+      <ChatSidebar
+        isOpen={isSidebarOpen}
+        sessions={sessions}
+        currentSessionId={chatId}
+        onSelectSession={handleSelectSession}
+        onDeleteSession={handleDeleteSession}
+      />
 
-      <main className="flex-1 overflow-y-auto p-6 space-y-4">
-        <div className="max-w-3xl mx-auto w-full">
-          {chatError && (
-            <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded relative mb-4" role="alert">
-              <strong className="font-bold">Error: </strong>
-              <span className="block sm:inline">{chatError.message}</span>
-            </div>
-          )}
-          {/* ChatMessages is now called without pendingVisualizations */}
-          <ChatMessages messages={messages} />
-          {isLoading && messages[messages.length -1]?.role === 'user' && (
-            <div className="flex justify-center items-center p-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-              <p className="ml-2 text-gray-600 dark:text-gray-400">AI is thinking...</p>
-            </div>
-          )}
-        </div>
-      </main>
+      <div className="flex flex-1 flex-col min-w-0">
+        <ChatHeader
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+          onNewChat={handleNewChat}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          isSidebarOpen={isSidebarOpen}
+          isLoading={isLoading}
+        />
 
-      <footer className="sticky bottom-0 z-10 p-4 border-t bg-white dark:bg-gray-800 dark:border-gray-700">
-        <div className="max-w-3xl mx-auto">
-          <ChatInput 
-            input={input} 
-            handleInputChange={handleInputChange} 
-            handleSubmit={handleSubmitWithOptions} 
-            isLoading={isLoading} 
-            reload={reload}
-            stop={stop}
-            disabled={isUploading}
-          />
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
-            Current Model: {selectedModel}. AI can make mistakes. Consider checking important information.
-          </p>
-        </div>
-      </footer>
+        {chatError && (
+          <div className="mx-auto max-w-3xl w-full px-4 pt-4">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <strong>Error:</strong> {chatError.message}
+            </div>
+          </div>
+        )}
+
+        {showWelcome ? (
+          <WelcomeScreen onSuggestionClick={handleSuggestionClick} />
+        ) : (
+          <ChatMessages messages={messages} isLoading={isLoading} />
+        )}
+
+        <ChatInput
+          input={input}
+          handleInputChange={handleInputChange}
+          handleSubmit={handleSubmit}
+          isLoading={isLoading}
+          stop={stop}
+          disabled={isUploading}
+          onFileUpload={handleFileUpload}
+          isUploading={isUploading}
+        />
+      </div>
     </div>
   );
 } 

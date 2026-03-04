@@ -23,8 +23,8 @@ interface PlotlyPlotterProps {
 }
 
 const PlotlyPlotter: React.FC<PlotlyPlotterProps> = ({ params, description }) => {
-  const [plotData, setPlotData] = useState<Plotly.Data[]>([]);
-  const [plotLayout, setPlotLayout] = useState<Partial<Plotly.Layout>>({});
+  const [plotData, setPlotData] = useState<any[]>([]);
+  const [plotLayout, setPlotLayout] = useState<Record<string, any>>({});
   const [error, setError] = useState<string | null>(null);
 
   const processedParams = useMemo(() => {
@@ -48,8 +48,8 @@ const PlotlyPlotter: React.FC<PlotlyPlotterProps> = ({ params, description }) =>
       const node = math.parse(processedParams.functionString);
       const code = node.compile();
 
-      const newPlotData: Plotly.Data[] = [];
-      const newPlotLayout: Partial<Plotly.Layout> = {
+      const newPlotData: any[] = [];
+      const newPlotLayout: Record<string, any> = {
         title: processedParams.title || processedParams.functionString,
         margin: { t: 50, b: 50, l: 50, r: 50 }, 
         paper_bgcolor: 'rgba(0,0,0,0)', 
