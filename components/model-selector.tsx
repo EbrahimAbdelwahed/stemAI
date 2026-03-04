@@ -13,28 +13,22 @@ import {
 
 const models = [
   {
-    id: 'grok-3-mini',
-    name: 'Grok-3 Mini',
-    description: 'Fast reasoning by xAI',
+    id: 'deepseek-chat',
+    name: 'DeepSeek V3.2',
+    description: 'Fast general-purpose model with tool support',
     speed: 'fast',
   },
   {
-    id: 'gemini-2-flash',
-    name: 'Gemini 2.0 Flash',
-    description: 'Balanced by Google',
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    description: "Google's best price-performance model",
     speed: 'fast',
   },
   {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    description: 'Advanced by OpenAI',
+    id: 'deepseek-reasoner',
+    name: 'DeepSeek Reasoner',
+    description: 'Advanced reasoning for math & science',
     speed: 'balanced',
-  },
-  {
-    id: 'claude-3-haiku',
-    name: 'Claude 3 Haiku',
-    description: 'Fast by Anthropic',
-    speed: 'fast',
   },
 ];
 

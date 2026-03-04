@@ -40,7 +40,7 @@ function saveSessions(sessions: ChatSession[]) {
 
 export default function ChatPage() {
   const [chatId, setChatId] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState('gpt-4o');
+  const [selectedModel, setSelectedModel] = useState('deepseek-chat');
   const [isUploading, setIsUploading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
