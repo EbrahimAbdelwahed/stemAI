@@ -44,12 +44,16 @@ export function withAPIPerformanceTracking<T = any>(
       statusCode = response.status;
       success = statusCode >= 200 && statusCode < 400;
 
-      // Track response size only for non-streaming responses
+      // Track response size only for non-streaming responses.
       // Cloning a streaming response tees the ReadableStream, which delays delivery
-      // and can corrupt the stream when the AI data protocol is involved.
+      // and corrupts the AI data stream protocol (causes 405 / stream-start errors).
+      // Check multiple indicators — AI SDK v4 sets x-vercel-ai-data-stream:v1 and
+      // uses content-type:text/plain (not text/event-stream) for its data streams.
+      const contentType = response.headers.get('content-type') ?? '';
       const isStreaming =
         response.headers.get('x-vercel-ai-data-stream') != null ||
-        response.headers.get('content-type')?.includes('text/event-stream') ||
+        contentType.includes('text/event-stream') ||
+        contentType.startsWith('text/plain') ||
         response.headers.get('transfer-encoding')?.includes('chunked');
 
       if (enablePayloadSizeTracking && !isStreaming) {
@@ -71,36 +75,32 @@ export function withAPIPerformanceTracking<T = any>(
       // Re-throw the error to maintain normal error handling
       throw error;
     } finally {
-      // Always track the API performance metrics
+      // Fire-and-forget analytics: do NOT await so streaming responses are
+      // returned to the client immediately (awaiting here would block the
+      // Promise resolution and delay the first byte of any streamed response).
       const duration = performance.now() - startTime;
-      
-      try {
-        await realDataCollector.storeApiMetric(
-          endpoint,
-          method,
-          duration,
-          success,
-          statusCode,
-          enablePayloadSizeTracking ? (requestSize + responseSize) : undefined,
-          errorMessage
-        );
 
-        // Track additional detailed metrics
-        await realDataCollector.storeUserEvent('api_call_completed', {
-          endpoint,
-          method,
-          duration,
-          success,
-          status_code: statusCode,
-          request_size: enablePayloadSizeTracking ? requestSize : undefined,
-          response_size: enablePayloadSizeTracking ? responseSize : undefined,
-          user_agent: trackUserAgent ? req.headers.get('user-agent') : undefined,
-          error: errorMessage
-        });
-      } catch (analyticsError) {
-        // Don't let analytics errors affect the API response
-        console.error('Analytics tracking error:', analyticsError);
-      }
+      realDataCollector.storeApiMetric(
+        endpoint,
+        method,
+        duration,
+        success,
+        statusCode,
+        enablePayloadSizeTracking ? (requestSize + responseSize) : undefined,
+        errorMessage
+      ).catch(err => console.error('Analytics metric error:', err));
+
+      realDataCollector.storeUserEvent('api_call_completed', {
+        endpoint,
+        method,
+        duration,
+        success,
+        status_code: statusCode,
+        request_size: enablePayloadSizeTracking ? requestSize : undefined,
+        response_size: enablePayloadSizeTracking ? responseSize : undefined,
+        user_agent: trackUserAgent ? req.headers.get('user-agent') : undefined,
+        error: errorMessage
+      }).catch(err => console.error('Analytics event error:', err));
     }
   };
 }
