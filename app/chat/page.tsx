@@ -32,6 +32,11 @@ const SESSIONS_KEY = `${STORAGE_PREFIX}sessions`;
 const ACTIVE_SESSION_KEY = `${STORAGE_PREFIX}active-session`;
 const MESSAGES_PREFIX = `${STORAGE_PREFIX}messages-`;
 
+const LOCAL_STORAGE_CHAT_ID_KEY = ACTIVE_SESSION_KEY;
+const LOCAL_STORAGE_MESSAGES_KEY_PREFIX = MESSAGES_PREFIX;
+
+type ChatSession = { id: string; title?: string; createdAt?: number };
+
 function loadSessions(): ChatSession[] {
   try {
     const raw = localStorage.getItem(SESSIONS_KEY);
@@ -174,12 +179,12 @@ export default function ChatPage() {
             // And provide a default text part if only content string exists, for older SDK versions.
             parts: msg.parts && msg.parts.length > 0 ? msg.parts : (msg.content ? [{ type: 'text' as const, text: msg.content as string }] : [])
           }));
-          setMessages(validMessages);
-          
+          setMessages(valid);
+
           // Track session resume
           realDataCollector.storeUserEvent('chat_session_resumed', {
             chatId: chatIdToUse,
-            message_count: validMessages.length,
+            message_count: valid.length,
             model: selectedModel
           }, '/chat');
         } catch (e) {
@@ -230,8 +235,6 @@ export default function ChatPage() {
         console.error("Failed to save messages to localStorage", e);
         toast.error("Could not save chat history. Storage might be full.");
       }
-    } catch {
-      toast.error('Could not save chat history.');
     }
   }, [chatId, messages, setMessagesInStore]);
 
@@ -267,21 +270,21 @@ export default function ChatPage() {
         // More robust image detection
         const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(file.name);
         const isDocument = !isImage && (/\.(pdf|txt|doc|docx)$/i.test(file.name) || file.type.includes('document') || file.type.includes('text'));
-        
+
         // Validate file type
         if (!isImage && !isDocument) {
           toast.error(`Unsupported file type: ${file.name}. Please upload images (JPG, PNG, GIF, BMP, WEBP) or documents (PDF, TXT, DOC, DOCX).`);
           continue;
         }
-        
+
         const endpoint = isImage ? '/api/ocr' : '/api/documents';
         const fileType = isImage ? 'image' : 'document';
-        
+
         try {
           console.log(`[ChatPage] Processing ${fileType}: ${file.name} (MIME: ${file.type})`);
           toast.info(`Processing ${file.name} as ${fileType}...`);
           track('FileUploadStarted', { fileName: file.name, fileSize: file.size, fileType });
-          
+
           // Enhanced upload tracking
           const uploadStartTime = performance.now();
           realDataCollector.storeUserEvent('file_upload_started', {
@@ -302,61 +305,33 @@ export default function ChatPage() {
             body: formData,
           });
 
-  const handleDeleteSession = useCallback(
-    (id: string) => {
-      localStorage.removeItem(`${MESSAGES_PREFIX}${id}`);
-      setSessions((prev) => {
-        const updated = prev.filter((s) => s.id !== id);
-        saveSessions(updated);
-        return updated;
-      });
-      if (id === chatId) {
-        handleNewChat();
-      }
-    },
-    [chatId, handleNewChat]
-  );
+          if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || `Failed to process: ${response.statusText}`);
+          }
 
-  const handleFileUpload = useCallback(
-    (files: File[]) => {
-      if (!files?.length) return;
-      setIsUploading(true);
+          const result = await response.json();
 
-      const processFiles = async () => {
-        for (const file of files) {
-          const isImage = file.type.startsWith('image/');
-          const endpoint = isImage ? '/api/ocr' : '/api/documents';
-
-          try {
-            toast.info(`Processing ${file.name}...`);
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const response = await fetch(endpoint, { method: 'POST', body: formData });
-            if (!response.ok) {
-              const err = await response.json();
-              throw new Error(err.error || `Failed to process: ${response.statusText}`);
-            }
-
+          if (isImage) {
+            const ocrMessage = result.extractedText
+              ? `I've extracted the following text from ${file.name}:\n\n${result.extractedText}`
+              : `I processed ${file.name} but couldn't extract any text.`;
             append({
               id: uuidv4(),
               role: 'assistant',
               content: ocrMessage,
               parts: [{ type: 'text' as const, text: ocrMessage }]
             });
-
-            toast.success(`OCR completed for ${file.name}! ${result.extractedText.length} characters extracted.`);
-            track('OCRSucceeded', { 
-              fileName: file.name, 
-              textLength: result.extractedText.length,
+            toast.success(`OCR completed for ${file.name}! ${result.extractedText?.length ?? 0} characters extracted.`);
+            track('OCRSucceeded', {
+              fileName: file.name,
+              textLength: result.extractedText?.length ?? 0,
               hasFormulas: result.hasFormulas,
-              processingTime: result.processingTime 
+              processingTime: result.processingTime
             });
-            
-            // Enhanced OCR success tracking
             realDataCollector.storeUserEvent('ocr_completed', {
               file_name: file.name,
-              text_length: result.extractedText.length,
+              text_length: result.extractedText?.length ?? 0,
               has_formulas: result.hasFormulas,
               processing_time: result.processingTime,
               file_size: file.size,
@@ -371,10 +346,9 @@ export default function ChatPage() {
               id: uuidv4(),
               role: 'user',
               content: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`,
-              parts: [{type: 'text' as const, text: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})`}]
+              parts: [{ type: 'text' as const, text: `I have uploaded the document "${file.name}". Please summarize its key points. (Context: Document just uploaded, ID: ${result.documentId})` }]
             });
             track('FileUploadSucceeded', { fileName: file.name, documentId: result.documentId });
-            
             // Enhanced document upload success tracking
             realDataCollector.storeUserEvent('document_uploaded', {
               file_name: file.name,
@@ -386,13 +360,11 @@ export default function ChatPage() {
               success: true
             }, '/chat');
           }
-
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
           console.error(`File processing error for ${file.name}:`, error);
           toast.error(`Processing failed for ${file.name}: ${errorMessage}`);
           track('FileProcessingFailed', { fileName: file.name, error: errorMessage, fileType });
-          
           // Enhanced error tracking
           realDataCollector.storeUserEvent('file_upload_failed', {
             file_name: file.name,
@@ -404,7 +376,8 @@ export default function ChatPage() {
             success: false
           }, '/chat');
         }
-      };
+      }
+    };
 
     processFiles().finally(() => {
       setIsUploading(false);
