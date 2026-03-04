@@ -21,7 +21,7 @@ An intelligent STEM learning platform with multi-model AI chat, interactive visu
 | Layer | Technology |
 |-------|-----------|
 | Framework | Next.js 15, React 18, TypeScript |
-| AI | Vercel AI SDK 4, DeepSeek, Google Gemini |
+| AI | Vercel AI SDK 4, DeepSeek, Google Gemini (via OpenRouter) |
 | Database | PostgreSQL + pgvector (Neon), Drizzle ORM |
 | Auth | NextAuth.js v5 (GitHub, Google OAuth) |
 | Styling | Tailwind CSS, Lucide Icons |
@@ -74,7 +74,7 @@ DATABASE_URL=postgres://user:pass@host:5432/db
 
 # AI Providers (at least one required)
 DEEPSEEK_API_KEY=your_key
-GOOGLE_GENAI_API_KEY=your_key
+OPENROUTER_API_KEY=your_key
 
 # Embeddings (required for RAG)
 OPENAI_API_KEY=your_key

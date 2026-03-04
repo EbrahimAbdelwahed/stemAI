@@ -1,7 +1,10 @@
 // Lazy load AI model configurations
-export const loadGoogleConfig = async () => {
-  const { google } = await import('@ai-sdk/google');
-  return google;
+export const loadOpenRouterConfig = async () => {
+  const { createOpenAI } = await import('@ai-sdk/openai');
+  return createOpenAI({
+    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: process.env.OPENROUTER_API_KEY,
+  });
 };
 
 export const loadDeepSeekConfig = async () => {
@@ -18,8 +21,8 @@ export const loadOpenAIConfig = async () => {
 export async function getModelConfig(modelId: string) {
   switch (true) {
     case modelId.startsWith('gemini-'):
-      const google = await loadGoogleConfig();
-      return google(modelId);
+      const openrouter = await loadOpenRouterConfig();
+      return openrouter(`google/${modelId}`);
 
     case modelId.startsWith('deepseek-'):
       const deepseek = await loadDeepSeekConfig();
@@ -35,8 +38,8 @@ export async function getModelConfig(modelId: string) {
 // Preload specific model SDK
 export function preloadModelSDK(modelId: string): void {
   if (modelId.startsWith('gemini-')) {
-    loadGoogleConfig().catch(console.error);
+    loadOpenRouterConfig().catch(console.error);
   } else if (modelId.startsWith('deepseek-')) {
     loadDeepSeekConfig().catch(console.error);
   }
-} 
+}
