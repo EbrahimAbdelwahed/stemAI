@@ -116,7 +116,7 @@ function MessageBubble({ message }: { message: Message }) {
           className={cn(
             'rounded-2xl px-4 py-3 text-sm leading-relaxed',
             isUser
-              ? 'bg-primary text-black rounded-br-md'
+              ? 'bg-primary text-primary-foreground rounded-br-md'
               : 'bg-muted rounded-bl-md'
           )}
         >
