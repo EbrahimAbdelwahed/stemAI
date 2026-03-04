@@ -80,7 +80,7 @@ const initialState = {
   conversations: [],
   currentConversation: null,
   messages: {},
-  selectedModel: 'grok-3-mini',
+  selectedModel: 'deepseek-chat',
   isStreaming: false,
   documents: [],
   uploadProgress: {},
@@ -243,7 +243,7 @@ export const useAppStore = create<AppState>()(
           
         resetToDefaults: () =>
           set({
-            selectedModel: 'grok-3-mini',
+            selectedModel: 'deepseek-chat',
             sidebarOpen: true,
             theme: 'dark',
             currentConversation: null

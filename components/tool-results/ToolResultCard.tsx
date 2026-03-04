@@ -1,7 +1,29 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { getToolIcon, getToolColor } from '../../app/test-tool-results/components/MockDataProvider';
+const getToolIcon = (toolName: string): string => {
+  const icons: Record<string, string> = {
+    'displayMolecule3D': '🧬',
+    'displayPlotlyChart': '📊',
+    'performOCR': '📄',
+    'displayPhysicsSimulation': '⚛️',
+    'plotFunction2D': '📈',
+    'plotFunction3D': '📉',
+  };
+  return icons[toolName] || '🔧';
+};
+
+const getToolColor = (toolName: string): string => {
+  const colors: Record<string, string> = {
+    'displayMolecule3D': '#10B981',
+    'displayPlotlyChart': '#3B82F6',
+    'performOCR': '#8B5CF6',
+    'displayPhysicsSimulation': '#F59E0B',
+    'plotFunction2D': '#06B6D4',
+    'plotFunction3D': '#8B5CF6',
+  };
+  return colors[toolName] || '#6B7280';
+};
 import { ToolLoadingState, TypingIndicator } from '../ui/LoadingStates';
 
 interface ToolResultCardProps {

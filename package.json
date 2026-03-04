@@ -1,7 +1,7 @@
 {
   "name": "stemai",
   "version": "1.0.0",
-  "description": "STEM AI Assistant with RAG capabilities",
+  "description": "STEM AI learning platform with multi-model chat, interactive visualizations, and RAG",
   "main": "index.js",
   "directories": {
     "doc": "docs",
@@ -20,12 +20,18 @@
     "rag",
     "stem",
     "education",
-    "assistant"
+    "nextjs",
+    "deepseek",
+    "gemini",
+    "visualizations",
+    "molecular-viewer",
+    "physics-simulation"
   ],
-  "author": "",
+  "author": "Ebrahim Abdelwahed",
   "license": "ISC",
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",
+    "@ai-sdk/deepseek": "^2.0.22",
     "@ai-sdk/google": "^1.2.18",
     "@ai-sdk/openai": "^1.3.22",
     "@ai-sdk/react": "^1.2.12",

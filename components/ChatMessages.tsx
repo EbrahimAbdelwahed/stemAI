@@ -15,8 +15,6 @@ import { StreamingMarkdown } from './ui/StreamingMarkdown';
 import { ToolResultRenderer, estimateThinkingTime } from './chat/ToolResultRenderer';
 import { ThinkingTracesArtifact } from './chat/ThinkingTracesArtifact';
 
-// Temporary direct import to fix chunk loading issue
-// TODO: Restore dynamic import after resolving chunk loading
 import MarkdownRenderer from './MarkdownRenderer';
 
 const PlotlyPlotter = dynamic(() => import('./visualizations/PlotlyPlotter'), {

@@ -179,8 +179,7 @@ async function documentsHandler(req: NextRequest) {
         fileContent = sanitizeTextForDatabase(rawText);
         
       } else if (file.name.toLowerCase().match(/\.(doc|docx)$/)) {
-        // For now, read as text (this might not work well for binary Word docs)
-        // TODO: Add proper Word document processing with mammoth.js or similar
+        // Read as text (limited support for binary Word docs)
         processingMethod = 'Document file reading (limited support)';
         try {
           const rawText = await file.text();

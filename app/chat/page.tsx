@@ -27,7 +27,7 @@ const LazyChatMessages = lazy(() => import('../../components/ChatMessages'));
 // The SDK's Message type should include toolInvocations for Vercel AI SDK v3+.
 type Message = VercelMessage;
 
-type ModelType = 'grok-3-mini' | 'gemini-1.5-flash-latest' | 'gpt-4o' | 'claude-3-haiku-20240307' | 'o4-mini';
+type ModelType = 'deepseek-chat' | 'gemini-2.5-flash' | 'deepseek-reasoner';
 
 const LOCAL_STORAGE_CHAT_ID_KEY = 'stem-ai-chat-id';
 const LOCAL_STORAGE_MESSAGES_KEY_PREFIX = 'stem-ai-chat-messages-';

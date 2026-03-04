@@ -213,41 +213,21 @@ IMPORTANT:
   const model = await getLazyModelConfig(modelId);
   
   switch (modelId) {
-    case 'gemini-1.5-flash-latest':
+    case 'gemini-2.5-flash':
       return {
         model,
-        system: `${baseSystem}\n\nYou are powered by Gemini 1.5 Flash.`,
+        system: `${baseSystem}\n\nYou are powered by Gemini 2.5 Flash.`,
       };
-    case 'claude-3-haiku-20240307':
-      return {
-        model,
-        system: `${baseSystem}\n\nYou are powered by Claude 3 Haiku.`,
-      };
-    case 'gpt-4o':
-      return {
-        model,
-        system: `${baseSystem}\n\nYou are powered by GPT-4o.`,
-      };
-    case 'o4-mini':
-      return {
-        model,
-        system: `${baseSystem}\n\nYou are powered by o4-mini with advanced reasoning capabilities.`,
-        providerOptions: {
-          openai: { 
-            reasoningSummary: 'detailed'
-          }
-        }
-      };
-    default:
-      // For Grok models that don't support native tool calling, we use special tokens
-      const grokSystem = baseSystem.replace(
+    case 'deepseek-reasoner': {
+      // DeepSeek Reasoner excels at math/science but does not support native tool calling.
+      // Use special text tokens for visualizations.
+      const reasonerSystem = baseSystem.replace(
         'Do NOT generate text tokens like [NEEDS_VISUALIZATION]. Instead, directly call the tool.',
         'Since you do not support native tool calling, you MUST use special text tokens for visualizations and tools.'
       );
-      
       return {
         model,
-        system: `${grokSystem}\n\nYou are powered by Grok-3-Mini with reasoning capabilities.
+        system: `${reasonerSystem}\n\nYou are powered by DeepSeek V3.2 Reasoner with advanced mathematical reasoning capabilities.
 
 ## SPECIAL TOKEN SYSTEM FOR VISUALIZATIONS
 
@@ -268,7 +248,14 @@ Since you do not support native function calling, use these special text tokens:
 **For Custom Charts:**
 [NEEDS_VISUALIZATION:{"type":"plotly","data":[{"x":[1,2,3],"y":[1,4,9],"type":"scatter"}],"title":"Chart Title"}]
 
-IMPORTANT: Always use these exact token formats when users request visualizations, molecular structures, plots, or physics simulations. The system will automatically convert these tokens into interactive visualizations.`,
+IMPORTANT: Always use these exact token formats when users request visualizations, molecular structures, plots, or physics simulations.`,
+      };
+    }
+    default:
+      // DeepSeek V3.2 (deepseek-chat) supports native tool calling
+      return {
+        model,
+        system: `${baseSystem}\n\nYou are powered by DeepSeek V3.2.`,
       };
   }
 }
@@ -365,13 +352,9 @@ function detectEarlyToolSignals(token: string) {
 async function chatHandler(req: NextRequest): Promise<Response> {
   const body = await req.json();
   
-  // Add debugging to understand the request structure
-  console.log('[Chat API] Raw request body keys:', Object.keys(body));
-  console.log('[Chat API] Raw request body:', JSON.stringify(body, null, 2));
-  
-  const { 
+  const {
     messages, 
-    model: modelId = 'grok-3-mini',
+    model: modelId = 'deepseek-chat',
     mode = 'chat',
     conversationId,
   }: { 
@@ -412,8 +395,6 @@ async function chatHandler(req: NextRequest): Promise<Response> {
     });
   }
 
-  console.log('[Chat API] Messages structure:', messages.map(m => ({ role: m.role, hasContent: !!m.content })));
-
   // Get authentication session
   const session = await auth();
   const userId = session?.user?.id;
@@ -440,7 +421,6 @@ async function chatHandler(req: NextRequest): Promise<Response> {
       });
       currentConversationId = conversation.id;
       isNewConversation = true;
-      console.log('[Chat API] Created new conversation:', currentConversationId);
     } catch (error) {
       console.error('[Chat API] Failed to create conversation:', error);
       // Continue without persistence - will fall back to localStorage
@@ -472,28 +452,18 @@ async function chatHandler(req: NextRequest): Promise<Response> {
       const isSimpleQuery = detectSimpleQuery(lastUserMessage.content);
       
       if (!isSimpleQuery) {
-        console.log('[RAG] Searching documents for query:', lastUserMessage.content.substring(0, 50) + '...');
         const relevantDocs = await searchDocumentsOptimized(lastUserMessage.content, 3, userId);
-        console.log(`[RAG] Search returned ${relevantDocs.length} relevant documents for user: ${userId || 'anonymous'}`);
-        
+
         if (relevantDocs && relevantDocs.length > 0) {
           context = `Here is some relevant information that may help answer the question:\n\n` +
             relevantDocs.map((doc) => {
               return `Document: \"${doc.title}\"\nContent: ${doc.content}\n`;
             }).join('\n');
-          console.log(`[RAG] Added context to system prompt, length: ${context.length} characters`);
-          console.log(`[RAG] Context preview: ${context.substring(0, 200)}...`);
-        } else {
-          console.log('[RAG] No relevant documents found for this query');
         }
-      } else {
-        console.log('[RAG] Simple query detected - skipping RAG for:', lastUserMessage.content.substring(0, 50) + '...');
       }
     } catch (error) {
       console.error('[RAG] Error searching documents:', error);
     }
-  } else if (lastUserMessage && typeof lastUserMessage.content === 'string'){
-    console.log('[RAG] RAG is disabled or last user message is not suitable for search. Skipping document search.');
   }
 
       const modelConfig = await getModelConfigLocal(modelId, mode);
@@ -502,17 +472,9 @@ async function chatHandler(req: NextRequest): Promise<Response> {
     ? `${modelConfig.system}\n\n${context}`
     : modelConfig.system;
 
-  console.log('[Chat API] ===== NEW REQUEST =====');
-  console.log('[Chat API] Model:', modelId, 'Mode:', mode);
-  console.log('[Chat API] Messages count:', messages.length);
-  console.log('[Chat API] Last message:', messages[messages.length - 1]?.content?.toString().substring(0, 100));
-  console.log('[Chat API] RAG context included:', context.length > 0 ? `Yes (${context.length} chars)` : 'No');
-  console.log('[Chat API] Available tools:', mode === 'chat' ? Object.keys(visualizationTools) : ['generateReactComponent']);
-  console.log('[Chat API] System prompt includes:', systemPromptWithContext.includes('displayMolecule3D') ? 'displayMolecule3D instructions' : 'no tool instructions');
-
   try {
     const result = await streamText({
-      model: modelConfig.model,
+      model: modelConfig.model as any,
       system: systemPromptWithContext,
       messages: messages,
       maxSteps: mode === 'generate' ? 5 : 3,
@@ -529,65 +491,11 @@ async function chatHandler(req: NextRequest): Promise<Response> {
           }
         }
       } : visualizationTools,
-      ...(modelConfig.providerOptions && { providerOptions: modelConfig.providerOptions }),
-      
-      // NEW: Real-time chunk processing for early tool detection
-      onChunk: async ({ chunk }) => {
-        try {
-          // Early tool signal detection during streaming
-          if (chunk.type === 'text-delta' && chunk.textDelta) {
-            const detectedSignals = detectEarlyToolSignals(chunk.textDelta);
-            
-            if (detectedSignals.length > 0) {
-              console.log('[Enhanced Streaming] Early tool signals detected:', detectedSignals);
-              // Note: Early detection for potential optimizations
-              // The actual tool processing happens in onStepFinish and onFinish
-            }
-          }
-          
-          // Handle tool call streaming chunks
-          if (chunk.type === 'tool-call-streaming-start') {
-            console.log('[Enhanced Streaming] Tool call started:', chunk);
-          }
-          
-          if (chunk.type === 'tool-call-delta') {
-            console.log('[Enhanced Streaming] Tool call delta:', chunk);
-          }
-        } catch (err) {
-          console.error('[Enhanced Streaming] Error in onChunk processing:', err);
-        }
-      },
-      
-      // ENHANCED: Step completion handling for multi-step flows
-      onStepFinish: async ({ stepType, finishReason, usage, text, toolCalls, toolResults }) => {
-        console.log('[Enhanced onStepFinish] Step completed:', {
-          stepType,
-          finishReason,
-          usage,
-          toolCallsCount: toolCalls?.length || 0,
-          toolResultsCount: toolResults?.length || 0,
-          textLength: text?.length || 0
-        });
-        
-        if (toolCalls && toolCalls.length > 0) {
-          console.log('[Enhanced onStepFinish] Tool calls in this step:', toolCalls.length, 'calls');
-        }
-      },
-      
-      // ENHANCED: Final completion handling
       onFinish: async ({ text, toolCalls, toolResults, finishReason, usage, steps }) => {
         try {
-          console.log('[Enhanced onFinish] ===== STREAM FINISHED =====');
-          console.log('[Enhanced onFinish] Finish Reason:', finishReason);
-          console.log('[Enhanced onFinish] Usage:', usage);
-          console.log('[Enhanced onFinish] Text:', text?.substring(0, 200) + (text?.length > 200 ? '...' : ''));
-          console.log('[Enhanced onFinish] Tool Calls Count:', toolCalls?.length || 0);
-          console.log('[Enhanced onFinish] Steps Count:', steps?.length || 0);
-          
           // Save conversation to database if authenticated
           if (currentConversationId && userId && text) {
             try {
-              // Save the user's last message first (if not already saved)
               const lastUserMsg = messages[messages.length - 1];
               if (lastUserMsg && lastUserMsg.role === 'user') {
                 await saveMessage({
@@ -599,25 +507,23 @@ async function chatHandler(req: NextRequest): Promise<Response> {
                 });
               }
 
-              // Save the assistant's response
               const assistantMessage = await saveMessage({
                 conversationId: currentConversationId,
                 role: 'assistant',
                 content: text,
                 tokenUsage: usage,
-                metadata: { 
+                metadata: {
                   finishReason,
                   stepCount: steps?.length,
                   timestamp: new Date().toISOString()
                 }
               });
 
-              // Save tool invocations if any
               if (toolCalls && toolCalls.length > 0 && assistantMessage) {
                 for (let i = 0; i < toolCalls.length; i++) {
                   const toolCall = toolCalls[i] as any;
                   const toolResult = toolResults?.[i] as any;
-                  
+
                   await saveToolInvocation({
                     messageId: assistantMessage.id,
                     toolName: toolCall.toolName || toolCall.name || 'unknown',
@@ -627,48 +533,30 @@ async function chatHandler(req: NextRequest): Promise<Response> {
                   });
                 }
               }
-
-              console.log('[Enhanced onFinish] Saved conversation to database:', currentConversationId);
             } catch (dbError) {
-              console.error('[Enhanced onFinish] Error saving to database:', dbError);
-              // Fall back to localStorage for anonymous users
+              console.error('[Chat API] Error saving to database:', dbError);
               if (!userId) {
                 try {
-                  const allMessages = [...messages, { 
-                    id: `msg-${Date.now()}`, 
-                    role: 'assistant', 
+                  const allMessages = [...messages, {
+                    id: `msg-${Date.now()}`,
+                    role: 'assistant',
                     content: text,
                     createdAt: new Date()
                   }];
                   saveToLocalStorage(currentConversationId || `chat-${Date.now()}`, allMessages as any);
-                  console.log('[Enhanced onFinish] Saved to localStorage as fallback');
                 } catch (lsError) {
-                  console.error('[Enhanced onFinish] Error saving to localStorage:', lsError);
+                  console.error('[Chat API] Error saving to localStorage:', lsError);
                 }
               }
             }
           }
-          
-          // Process completed tool calls
-          if (toolCalls && toolCalls.length > 0) {
-            console.log('[Enhanced onFinish] Processing tool calls:', JSON.stringify(toolCalls, null, 2));
-          }
-          
-          if (toolResults && toolResults.length > 0) {
-            console.log('[Enhanced onFinish] Tool Results:', JSON.stringify(toolResults, null, 2));
-          }
-          
-          // Final text processing for any missed signals
+
+          // Process text tokens for models that don't support native tool calling
           if (text) {
-            const finalSignals = extractAllToolSignals(text);
-            if (finalSignals.length > 0) {
-              console.log('[Enhanced onFinish] Final tool signals found:', finalSignals);
-            }
+            extractAllToolSignals(text);
           }
-          
-          console.log('[Enhanced onFinish] Available Tools:', Object.keys(visualizationTools));
         } catch (error) {
-          console.error('[Enhanced onFinish] Error in enhanced onFinish:', error);
+          console.error('[Chat API] Error in onFinish:', error);
         }
       }
     });

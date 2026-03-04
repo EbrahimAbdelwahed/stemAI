@@ -6,11 +6,9 @@ import { Paperclip, Send, X, Bot, ChevronDown, Zap } from 'lucide-react';
 import { useAppStore } from '@/lib/store/app-store';
 
 const models = [
-  { id: 'grok-3-mini', name: 'Grok 3 Mini', provider: 'xAI' },
-  { id: 'gemini-1.5-flash-latest', name: 'Gemini 1.5 Flash', provider: 'Google' },
-  { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
-  { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', provider: 'Anthropic' },
-  { id: 'o4-mini', name: 'Command R+', provider: 'Cohere' },
+  { id: 'deepseek-chat', name: 'DeepSeek V3.2', provider: 'DeepSeek' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'Google' },
+  { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner', provider: 'DeepSeek' },
 ];
 
 interface ChatInputProps {
