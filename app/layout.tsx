@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: 'STEM AI Assistant',
@@ -15,9 +16,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        {children}
-        <Toaster position="top-center" richColors closeButton />
+        <Providers>
+          {children}
+          <Toaster position="top-center" richColors closeButton />
+        </Providers>
       </body>
     </html>
   );
-} 
+}
