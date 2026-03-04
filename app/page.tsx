@@ -1,86 +1,65 @@
 import Link from 'next/link';
+import { Atom, MessageSquare, FlaskConical, Calculator, ArrowRight } from 'lucide-react';
+
+const features = [
+  {
+    icon: Atom,
+    title: 'Molecular Visualization',
+    description: '3D protein and molecule structures with PDB, SMILES, and PubChem support.',
+  },
+  {
+    icon: FlaskConical,
+    title: 'Physics Simulations',
+    description: 'Interactive Matter.js simulations for pendulums, collisions, and more.',
+  },
+  {
+    icon: Calculator,
+    title: 'Math Plotting',
+    description: '2D and 3D function plots with LaTeX rendering for equations.',
+  },
+];
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-950 text-white p-8">
-      <div className="mb-12 flex items-center space-x-3">
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          width="38" 
-          height="38" 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="currentColor" 
-          strokeWidth="2" 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-          className="text-blue-500"
+    <main className="flex min-h-dvh flex-col items-center justify-center px-6 py-16">
+      {/* Hero */}
+      <div className="flex flex-col items-center text-center max-w-2xl">
+        <div className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-primary/10">
+          <Atom className="size-8 text-primary" />
+        </div>
+        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+          STEM AI Assistant
+        </h1>
+        <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
+          An AI-powered learning platform for science, technology, engineering, and mathematics.
+          Visualize molecules, run simulations, and explore STEM concepts.
+        </p>
+        <Link
+          href="/chat"
+          className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
         >
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
-        <h1 className="text-4xl font-bold">STEM AI Assistant</h1>
+          <MessageSquare className="size-4" />
+          Start chatting
+          <ArrowRight className="size-4" />
+        </Link>
       </div>
-      
-      <p className="text-xl mb-12 text-gray-300 text-center max-w-2xl">
-        A powerful AI assistant for STEM learning, now with UI generation capabilities
-      </p>
-      
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 max-w-sm">
-          <h2 className="text-2xl font-semibold mb-3">STEM Chat</h2>
-          <p className="text-gray-300 mb-6">
-            Ask questions about science, technology, engineering, and mathematics with RAG capabilities.
-          </p>
-          <Link 
-            href="/chat" 
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md inline-flex items-center transition-colors"
+
+      {/* Features */}
+      <div className="mt-20 grid gap-6 sm:grid-cols-3 w-full max-w-3xl">
+        {features.map((feature) => (
+          <div
+            key={feature.title}
+            className="flex flex-col items-start gap-3 rounded-xl border bg-card p-5 transition-colors hover:bg-accent/50"
           >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="mr-2"
-            >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            Open Chat
-          </Link>
-        </div>
-        
-        <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 max-w-sm">
-          <h2 className="text-2xl font-semibold mb-3">UI Generator</h2>
-          <p className="text-gray-300 mb-6">
-            Generate React components with a v0-like interface using AI-powered design.
-          </p>
-          <Link 
-            href="/generate" 
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md inline-flex items-center transition-colors"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="mr-2"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <circle cx="8.5" cy="8.5" r="1.5"></circle>
-              <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
-            Generate UI
-          </Link>
-        </div>
+            <feature.icon className="size-5 text-muted-foreground" />
+            <div>
+              <h3 className="font-medium text-sm">{feature.title}</h3>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                {feature.description}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
     </main>
   );
