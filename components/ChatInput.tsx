@@ -1,9 +1,10 @@
-import React, { FormEvent, useRef, useEffect, useState, useMemo, ChangeEvent } from 'react';
+import React, { FormEvent, useRef, useEffect, useState, useMemo, ChangeEvent, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Paperclip, Send, X, Bot, ChevronDown, Zap } from 'lucide-react';
 import { useAppStore } from '@/lib/store/app-store';
+import { useShallow } from 'zustand/react/shallow';
 
 const models = [
   { id: 'deepseek-chat', name: 'DeepSeek V3.2', provider: 'DeepSeek' },
@@ -30,20 +31,22 @@ export default function ChatInput({
   disabled = false,
   onFileUpload,
 }: ChatInputProps) {
-  const { selectedModel, setSelectedModel, isUploading } = useAppStore(state => ({
-    selectedModel: state.selectedModel,
-    setSelectedModel: state.setSelectedModel,
-    isUploading: state.isUploading,
-  }));
+  const { selectedModel, setSelectedModel, isUploading } = useAppStore(
+    useShallow((state: any) => ({
+      selectedModel: state.selectedModel,
+      setSelectedModel: state.setSelectedModel,
+      isUploading: state.isUploading,
+    }))
+  );
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const onDrop = (acceptedFiles: File[]) => {
+  const onDrop = useCallback((acceptedFiles: File[]) => {
     setAttachedFiles(prev => [...prev, ...acceptedFiles]);
     onFileUpload?.(acceptedFiles);
-  };
+  }, [onFileUpload]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, noClick: true });
 
