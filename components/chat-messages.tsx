@@ -124,7 +124,7 @@ function MessageBubble({ message }: { message: Message }) {
             <MarkdownRenderer
               content={formatAndCleanContent(message.content)}
               className="break-words"
-              darkMode={true}
+              darkMode={!isUser}
             />
           )}
         </div>
