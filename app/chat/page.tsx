@@ -431,7 +431,7 @@ ${result.originalSize && result.optimizedSize ? `*Image optimized: ${result.orig
     <ChatGPTLayout currentConversationId={chatId}>
       <ChatMainArea>
                     <Suspense fallback={<LoadingSkeleton className="h-full" />}>
-              <LazyChatMessages messages={messages} />
+              <LazyChatMessages messages={messages} isLoading={isLoading} />
             </Suspense>
         <ChatInput
           input={input}
